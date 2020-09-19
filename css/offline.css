@@ -1,0 +1,43 @@
+@media (min-height: 240px) and (orientation: landscape)
+.icon-offline {
+    margin-bottom: 20px;
+}
+.icon-offline {
+    background: url(images/drago.png) no-repeat left top; position: fixed; z-index: -1;
+    position: relative;
+
+}
+.icon {
+    -webkit-user-select: none;
+    display: inline-block;
+}
+.icon {
+    height: 72px;
+    margin: 0 0 40px;
+    width: 72px;
+}
+.icon {
+    background-repeat: no-repeat;
+    background-size: 100%;
+}
+user agent stylesheet
+div {
+    display: block;
+}
+.offline .interstitial-wrapper {
+    color: #2b2b2b;
+    font-size: 1em;
+    line-height: 1.55;
+    margin: 0 auto;
+    max-width: 600px;
+    padding-top: 100px;
+    width: 100%;
+}
+.interstitial-wrapper {
+    box-sizing: border-box;
+    font-size: 1em;
+    line-height: 1.6em;
+    margin: 14vh auto 0;
+    max-width: 600px;
+    width: 100%;
+}

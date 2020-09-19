@@ -1,0 +1,7 @@
+assets/*
+protected/runtime/*
+protected/log/*
+protected/qrcodes/*
+protected/uploads/*
+*.log
+*.db

@@ -1,0 +1,306 @@
+#carrello{
+	max-width:300px;
+	min-height:350px;
+	font-size: 0.8em;
+	/* max-height: 400px;
+	overflow-y: scroll;
+	overflow-x: hidden; */
+}
+.label-txt{
+	display:inline-block;
+	height:36px;
+	padding:10px 12px;
+	text-transform:uppercase;
+}
+#total{
+	font-size: 1.3em;
+	width:60%;
+}
+/* #total-class{
+	clear:both;
+	font-weight:bold;
+	padding:10px 12px 10px 30px;
+	text-transform:uppercase;
+	border-top:solid 1px black;
+	border-bottom:solid 1px black;
+	max-width:300px;
+	width:300px;
+	min-height: 50px;
+
+} */
+#total-left{
+	float:left;
+	width:40%;
+}
+/* #total{
+	float:right;
+	width:40%;
+} */
+#brtp2{
+	float:right;
+}
+
+
+
+
+.square
+	{
+		position: relative;
+		float:left;
+
+		width:230px;
+		height:210px;
+
+		background-color:#eee;
+
+		border-top: 1px solid #ccc ;
+		border-right:  2px solid #aaa;
+		border-left: 1px solid #ccc;
+		border-bottom:  2px solid #aaa;
+
+		text-shadow: 1px 1px 2px black;
+		text-align:center;
+
+		border-radius: 12px 12px 12px 12px;
+		-moz-border-radius:12px;
+		-khtml-border-radius: 12px;
+		-webkit-border-radius: 12px;
+
+		margin:10px 10px 10px 10px;
+	}
+.square a
+	{
+		text-decoration:none;
+	}
+.square:hover
+	{
+		background-color:#bbb;
+	}
+
+.squareimg
+	{
+		position: relative;
+		border:none;
+	}
+.squareimgsrc
+	{
+		max-width: 150px;
+		max-height: 120px;
+		height: 120px;
+	}
+
+.squaretitle
+	{
+		color:#7689c4;
+		font-size:1em;
+		text-shadow: none;
+	}
+.squaredescri
+	{
+		color:#333;
+		font-size: 1.5em;
+		text-shadow: none;
+	}
+
+
+/* dissolvenza */
+.square .nascosto {
+   -webkit-transition: 0.5s ease-in-out;
+    -moz-transition: 0.5s ease-in-out;
+    -o-transition: 0.5s ease-in-out;
+    transition: 0.5s ease-in-out;
+   opacity:0;
+   }
+.square:hover .nascosto { opacity:1;}
+
+.clear{
+	clear:both;
+}
+
+
+
+.container{
+	margin-bottom:40px;
+}
+
+.top-label{
+	display:inline-block;
+	margin-left:20px;
+	position:relative;
+	margin-bottom:-15px;
+}
+
+
+
+.content-area{
+	padding:15px 20px 0 20px;
+}
+
+.content{
+	padding:10px;
+}
+
+.drag-desired{
+	padding:30px;
+}
+
+.drop-here{
+}
+
+
+.bottom-container-border{
+	height:14px;
+}
+
+.product{
+	border:2px solid #F5F5F5;
+	float:left;
+	margin:15px;
+	padding:10px;
+}
+
+.product img{
+	cursor:move;
+}
+
+p.descr{
+	padding:5px 0;
+}
+
+small{
+	display:block;
+	margin-top:4px;
+}
+
+.tooltip{
+	position: absolute;
+	top: 0;
+	left: 0;
+	z-index: 3;
+	display: none;
+
+	background-color:#666666;
+	border:1px solid #666666;
+	color:#fcfcfc;
+
+	padding:10px;
+
+	-moz-border-radius:12px;
+	-khtml-border-radius: 12px;
+	-webkit-border-radius: 12px;
+	border-radius:12px;
+}
+
+#cart-icon{
+	width:128px;
+	float:left;
+	position:relative;
+}
+
+#ajax-loader{
+	position:absolute;
+	top:0px;
+	left:0px;
+	visibility:hidden;
+}
+
+#item-list{
+	/* float:left;
+	width:490px;
+	margin-left:20px;
+	padding-top:15px; */
+}
+
+a.remove,a.remove:visited{
+	color:red;
+	font-size:10px;
+	text-transform:uppercase;
+}
+
+
+
+#item-list table{
+	background-color:#F7F7F7;
+	border:1px solid #EFEFEF;
+	margin-top:5px;
+	padding:4px;
+}
+
+a.button,a.button:visited{
+	display:none;
+
+	height:29px;
+	width:136px;
+
+	padding-top:15px;
+	margin:0 auto;
+	overflow:hidden;
+
+	color:white;
+	font-size:12px;
+	font-weight:bold;
+	text-align:center;
+	text-transform:uppercase;
+
+	background:url(img/button.png) no-repeat center top;
+}
+
+a.button:hover{
+	background-position:bottom;
+	text-decoration:none;
+}
+
+
+a, a:visited {
+	color:#00BBFF;
+	text-decoration:none;
+	outline:none;
+}
+
+a:hover{
+	text-decoration:underline;
+}
+
+h1{
+	font-size:28px;
+	font-weight:bold;
+	font-family:"Trebuchet MS",Arial, Helvetica, sans-serif;
+}
+
+h2{
+	font-weight:normal;
+	font-size:20px;
+
+	color:#666666;
+	text-indent:30px;
+	margin:20px 0;
+}
+
+.tutorialzine h1{
+	color:white;
+	margin-bottom:10px;
+	font-size:48px;
+}
+
+.tutorialzine h3{
+	color:#F5F5F5;
+	font-size:10px;
+	font-weight:bold;
+	margin-bottom:30px;
+	text-transform:uppercase;
+}
+
+.tutorial-info{
+	color:white;
+	text-align:center;
+	padding:10px;
+	margin-top:-20px;
+}
+.waiting_span{
+    position: relative;
+    float: right;
+    max-height: 31px;
+    padding: 0px 0px 0px 0px;
+    margin: 0px 0px 0px 0px;
+    width: 76px;
+}
