@@ -77,10 +77,6 @@ class LoginPosForm extends CFormModel
 			$errorCode = $this->_identity->errorCode;
 
 			switch ($errorCode){
-				case POSIdentity::ERROR_USERNAME_NOT_PAYER:
-					$this->addError('username',"Nessun pagamento trovato.");
-					break;
-
 				case POSIdentity::ERROR_USERNAME_NOT_MEMBER:
 					$this->addError('username',"L'iscrizione è scaduta. Provvedere al pagamento della quota associativa per il rinnovo.");
 					break;

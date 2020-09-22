@@ -30,38 +30,7 @@
 				<a class="js-arrow" href="<?php echo Yii::app()->createUrl('keypad/index'); ?>">
 					Keypad <i class="glyphicon glyphicon-th"></i></a>
 			</li>
-			<?php
-			$pos = Pos::model()->findByPk(Yii::app()->user->objUser['id_pos']);
-			//cerco tutti gli shop
-			$criteria=new CDbCriteria();
-			$criteria->compare('id_store',$pos->id_store,false);
-			$criteria->compare('deleted',0,false);
-			$shops = Shops::model()->findAll($criteria);
-
-			$bps_shopid = array();
-			foreach ($shops as $x => $item)
-				$bps_shopid[] = ['denomination'=>$item->denomination,'bps_shopid'=>crypt::Encrypt($item->id_shop)];
-
-			// var_dump($bps_shopid);
-			// exit;
-			if (!empty($bps_shopid)){
-				?>
-				<li class="has-sub">
-					<a class="js-arrow" href="#">
-						Self POS <i class="fa fa-globe"></i></a>
-					<ul class="navbar-mobile-sub__list list-unstyled js-sub-list">
-						<?php
-						foreach ($bps_shopid as $x => $item){
-							echo '<li >
-								<a href="'.Yii::app()->createUrl('keypad/index',array('tag'=>$item['bps_shopid'])).'">'.substr($item['denomination'],0,13).'... <i class="fa fa-dot-circle-o"></i></a>
-							</li>';
-						}
-						?>
-				</ul>
-			</li>
-		<?php
-		}
-		?>
+			
 
 			<li>
 				<a class="js-arrow" href="<?php echo Yii::app()->createUrl('transactions/index'); ?>">

@@ -8,7 +8,6 @@
 class POSIdentity extends CUserIdentity
 {
 	const ERROR_USERNAME_NOT_MEMBER = 4;
-	const ERROR_USERNAME_NOT_PAYER = 6;
 
 	private $_id;
 	/**
@@ -49,39 +48,6 @@ class POSIdentity extends CUserIdentity
 			$PosIdNegozio = $pos->id_store;
 			$merchants=Merchants::model()->findByPk($pos->id_merchant);
 			$users=Users::model()->findByPk($merchants->id_user);
-
-			//$NomePOS .= chr(32).$stores->denomination;
-			//$NomePOS .= chr(32).$merchants->denomination;
-
-			/*
-			*	VERIFICA SE IL SOCIO HA PAGATO LA QUOTA D'ISCRIZIONE
-			*/
-			$timestamp = time();
-			$criteria = new CDbCriteria();
-			$criteria->compare('id_user',$merchants->id_user, false);
-
-			$provider = Pagamenti::model()->Paid()->OrderByIDDesc()->findAll($criteria);
-			if ($provider === null){
-				//$expiration_membership = $timestamp;
-				$this->errorCode=self::ERROR_USERNAME_NOT_PAYER;
-				$save->WriteLog('pos','useridentity','authenticate','User not payer: '.$this->username);
-				return !$this->errorCode;
-			}else{
-				$provider = (array) $provider;
-				if (count($provider) == 0)
-					$expiration_membership = 1;
-				else
-					$expiration_membership = strtotime($provider[0]->data_scadenza);
-			}
-			// scadenza entro il 31 gennaio per provvedere all'iscrizione (se la data_scadenza
-			// è al 31 dicembre)
-			// temporaneamente posticipato al 28 febbraio
-			$expiration_membership += (31+28) *24*60*60;
-			if ($expiration_membership <= $timestamp){
-				$this->errorCode=self::ERROR_USERNAME_NOT_MEMBER;
-				$save->WriteLog('pos','useridentity','authenticate','User not member: '.$this->username);
-				return !$this->errorCode;
-			}
 
 			$save->WriteLog('pos','useridentity','authenticate','User '.$this->username. ' logged in.');
 
