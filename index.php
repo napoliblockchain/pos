@@ -1,7 +1,9 @@
 <?php
+// $yiiVersion = 'yii';
+$yiiVersion = 'yii-1.1.22';
 
 // change the following paths if necessary
-$yii=dirname(__FILE__).'/../yii/framework/yii.php';
+$yii=dirname(__FILE__).'/../'.$yiiVersion.'/framework/yii.php';
 $config=dirname(__FILE__).'/protected/config/main.php';
 
 // remove the following lines when in production mode
