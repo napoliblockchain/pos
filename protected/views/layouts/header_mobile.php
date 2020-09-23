@@ -30,15 +30,9 @@
 				<a class="js-arrow" href="<?php echo Yii::app()->createUrl('keypad/index'); ?>">
 					Keypad <i class="glyphicon glyphicon-th"></i></a>
 			</li>
-			
-
-			<li>
-				<a class="js-arrow" href="<?php echo Yii::app()->createUrl('transactions/index'); ?>">
-					Transazioni <i class="fab fa-btc"></i></a>
-			</li>
 			<li>
 				<a href="<?php echo Yii::app()->createUrl('tokens/index'); ?>">
-					Token <i class="fas fa-star"></i></a>
+					Transazioni <i class="fas fa-star"></i></a>
 			</li>
 
 

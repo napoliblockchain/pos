@@ -1,4 +1,9 @@
 <?php
+Yii::import('libs.crypt.crypt');
+Yii::import('libs.NaPacks.Settings');
+Yii::import('libs.NaPacks.Logo');
+
+Yii::import('libs.bitstamp-real-time-price.BitstampRTP');
 
 class SettingsController extends Controller
 {

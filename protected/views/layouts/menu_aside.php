@@ -25,26 +25,15 @@
 						<a class="js-arrow" href="<?php echo Yii::app()->createUrl('keypad/index'); ?>">
 							 <i class="glyphicon glyphicon-th"></i>Keypad</a>
 					</li>
-					
-
-
-					<li>
-						<a class="js-arrow" href="<?php echo Yii::app()->createUrl('transactions/index'); ?>">
-							<i class="fab fa-btc"></i>Transazioni</a>
-					</li>
 					<li>
 						<a href="<?php echo Yii::app()->createUrl('tokens/index'); ?>">
-							<i class="fas fa-star"></i>Token</a>
+							<i class="fas fa-star"></i>Transazioni</a>
 					</li>
-
-
 					<li>
 						<a href="<?php echo Yii::app()->createUrl('site/contactForm'); ?>" target="_blank">
 							 <i class="fa fa-bug"></i><?php echo Yii::t('lang','Bug report');?></a>
 					</li>
-
 				</ul>
-
 			<?php } ?>
 		</nav>
 	</div>

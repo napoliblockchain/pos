@@ -14680,7 +14680,7 @@ section {
     padding-left: 30px;
 }
 
-#page-vesuvio{
+#p age-vesuvio{
     width: 100%; height: 100%; top: 0; left: 0;
     background: url(../../../css/images/BG.svg) no-repeat center top; position: fixed; z-index: -1;
     -webkit-background-size: cover;

@@ -63,14 +63,7 @@ $reCaptcha2PublicKey = $settings->reCaptcha2PublicKey;
 				</div>
 
 
-				<div class="row">
-					<div class="col" style="text-align:center;">
-						<img class='login-sponsor' src="<?php echo Yii::app()->request->baseUrl; ?>/css/images/logocomune.png" alt="" >
-					</div>
-					<div class="col" style="text-align:center;">
-						<img class='login-sponsor' width="150" height="150" src="<?php echo Yii::app()->request->baseUrl; ?>/css/images/parthenope.png" alt="" sizes="(max-width: 150px) 100vw, 150px">
-					</div>
-				</div>
+			
 				<?php echo Logo::footer('#333'); ?>
 
 		</div>

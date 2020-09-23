@@ -1,4 +1,4 @@
-var dbPromise = idb.open('napay-pos', 1, function(db) {
+var dbPromise = idb.open('fidelize-pos', 1, function(db) {
 	if (!db.objectStoreNames.contains('sin')) {
 	 	db.createObjectStore('sin', {keyPath: 'id'});
 	}
