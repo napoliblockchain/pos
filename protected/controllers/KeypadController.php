@@ -118,40 +118,10 @@ class KeypadController extends Controller
 
 		// verifico se è in scadenza
 		$warningmessage = null;
-		$deadline = WebApp::StatoPagamenti(Yii::app()->user->objUser['id_user'],true);
-		if ($deadline >= -31-28){
-			$warningmessage[] = $this->writeMessage('deadline', 28+31 - $deadline);
-		}
 
 
-		// if (!(WebApp::isMobileDevice())){
-		// 	$this->layout='//layouts/keypad-desktop';
-		//
-		// 	$pos = Pos::model()->findByPk(Yii::app()->user->objUser['id_pos']);
-		// 	//cerco tutti gli shop
-		// 	$criteria=new CDbCriteria();
-		// 	$criteria->compare('id_store',$pos->id_store,false);
-		// 	$criteria->compare('deleted',0,false);
-		// 	$shops = Shops::model()->findAll($criteria);
-		//
-		// 	$bps_shopid = array();
-		// 	foreach ($shops as $x => $item)
-		// 		$bps_shopid[] = ['denomination'=>$item->denomination,'bps_shopid'=>$item->bps_shopid];
-		//
-			// echo "<pre>".print_r($bps_shopid,true)."</pre>";
-			// exit;
-		//
-		//
-		//
-		// 	$this->render('keypad-desktop',array(
-		// 	//$this->render('keypad-mobile',array(
-		// 		'invoiceIsPaid'=>$invoiceIsPaid,
-		// 		'invoiceId' => $id,
-		// 		'invoiceAction'=> $action,
-		// 		'warningmessage'=>$warningmessage, // messaggio di scadenza
-		// 		'bps_shopid' => $bps_shopid,
-		// 	));
-		// }else{
+
+	
 		if (isset($_GET['tag'])){
 			 $shop = Shops::model()->findByPk(crypt::Decrypt($_GET['tag']));
 				$this->render('keypad-desktop',array(

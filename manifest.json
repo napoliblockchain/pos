@@ -1,6 +1,6 @@
 {
-  "name": "Napay POS - Point of sale",
-  "short_name": "Napay POS",
+  "name": "Fidelity POS",
+  "short_name": "Fidelity POS",
   "icons": [
     {
       "src": "src/images/icons/app-icon-48x48.png",
@@ -44,7 +44,7 @@
   "orientation": "portrait-primary",
   "background_color": "#fff",
   "theme_color": "#3f51b5",
-  "description": "A web application using Bitcoin & Naples Payment Token, implementing a lot of PWA love.",
+  "description": "A web application using ERC20 Token, implementing a lot of PWA love.",
   "dir": "ltr",
   "lang": "it-IT"
 }

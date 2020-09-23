@@ -2,7 +2,8 @@
 
 // This is the configuration for yiic console application.
 // Any writable CConsoleApplication properties can be configured here.
-$libsPath = dirname(__FILE__).DIRECTORY_SEPARATOR.'../../../libs/';
+$libsPath = dirname(__FILE__).DIRECTORY_SEPARATOR.'../../../fidelize-packages';
+Yii::setPathOfAlias('libs', $libsPath);
 
 return array(
 	'basePath'=>dirname(__FILE__).DIRECTORY_SEPARATOR.'..',
@@ -31,19 +32,7 @@ return array(
 				),
 			),
 		),
-		// MIE CLASSI
-		'webRequest'=>require($libsPath.'/webRequest/webRequest.php'),
-		'crypt'=>require($libsPath.'/crypt/crypt.php'),
-		'NAPay'=>require($libsPath.'/NAPay/Autoloader.php'),
-		'Utils'=>require($libsPath.'/Utils/Utils.php'),
-		'eth'=>require($libsPath.'/ethereum/eth.php'),
 
-		//'Settings'=>require($libsPath.'/NAPay/Settings.php'),
-		// 'Notifi'=>require(dirname(__FILE__).'../../extensions/web-app/Notifi.php'),
-		// 'Push'=>require(dirname(__FILE__).'../../extensions/web-app/Push.php'),
-		// 'SaveModels'=>require(dirname(__FILE__).'../../extensions/web-app/SaveModels.php'),
-		// 'Save'=>require(dirname(__FILE__).'../../extensions/web-app/Save.php'),
-		// 'eth'=>require(dirname(__FILE__).'../../extensions/web-app/eth.php'),
 
 	),
 	'params'=>array(

@@ -1,4 +1,11 @@
 <?php
+Yii::import('libs.crypt.crypt');
+Yii::import('libs.NaPacks.Settings');
+Yii::import('libs.NaPacks.WebApp');
+Yii::import('libs.NaPacks.Notifi');
+Yii::import('libs.NaPacks.Logo');
+
+Yii::import('libs.bitstamp-real-time-price.BitstampRTP');
 
 class MessagesController extends Controller
 {

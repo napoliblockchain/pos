@@ -1,9 +1,3 @@
-//$(document).ready(function () {
-   // $('.easy-get').on('click', () => {
-        //show_easy_numpad();
-   // });
-//});
-
 function show_easy_numpad() {
     var easy_numpad = `
         <div class="easy-numpad-frame" id="easy-numpad-frame">
@@ -40,11 +34,9 @@ function show_easy_numpad() {
                         </tr>
                     </table>
                     <center>
-                    <small><button class="btn btn-success btn-sm done" id="done" name='confirm' type='button'>
-                        <i class="fab fa-btc smaller"></i>&nbsp;<span id='waiting_span-btc' class="smaller">bitcoin</span></button></small>
-
-                    <small><button class="btn btn-primary btn-sm token" id="token" name='token' type='button'>
-                        <i class="fab fa-ethereum smaller"></i>&nbsp;<span id='waiting_span-token' class="smaller">token</span></button></small>
+                    <button class="btn btn-primary token" id="token" name='token' type='button'>
+                        <span id='waiting_span-token' class='smaller'>Conferma</span>
+                    </button>
                     </center>
                 </div>
             </div>

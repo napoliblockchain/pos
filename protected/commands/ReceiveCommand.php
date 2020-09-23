@@ -1,4 +1,15 @@
 <?php
+Yii::import('libs.crypt.crypt');
+Yii::import('libs.NaPacks.Settings');
+Yii::import('libs.NaPacks.WebApp');
+Yii::import('libs.NaPacks.SaveModels');
+Yii::import('libs.NaPacks.Save');
+Yii::import('libs.NaPacks.Push');
+Yii::import('libs.NaPacks.Notifi');
+Yii::import('libs.ethereum.eth');
+Yii::import('libs.Utils.Utils');
+Yii::import('libs.webRequest.webRequest');
+
 class ReceiveCommand extends CConsoleCommand
 {
 	public $logfilehandle = null;
@@ -60,10 +71,12 @@ class ReceiveCommand extends CConsoleCommand
 	private function getLogFile(){
 		return $this->logfilehandle;
 	}
+
 	//scrive a video e nel file log le informazioni richieste
 	private function log($text){
 		$save = new Save;
-		$save->WriteLog('pos','commands','receive',$text);
+		$save->WriteLog('pos','commands','receive', $text);
+		echo "\r\n" .date('Y/m/d h:i:s a - ', time()) .$text;
 	}
 
 	public function actionIndex($id){
@@ -77,9 +90,6 @@ class ReceiveCommand extends CConsoleCommand
 		// 	chmod($nomeLogFile, 0755);  // octal; correct value of mode
 		// }
 
-		//non c'è output, pertanto salvo gli errori nel log file
-		$myfile = fopen($nomeLogFile, "a");
-		$this->setLogFile($myfile);
 		$this->log("Start Check invoice #: $id");
 
 		//carico l'invoice
@@ -92,7 +102,7 @@ class ReceiveCommand extends CConsoleCommand
 
 		while(true){
 			$ipnflag = false;
-			if ($invoice->status == 'new'){ //se il valore è new proseguo
+			if ($invoice->status == 'new' || $invoice->status == 'expired'){ //se il valore è new proseguo
 				// cerco le transazioni su bolt_tokens in pending
 				$criteria=new CDbCriteria;
 
@@ -105,8 +115,8 @@ class ReceiveCommand extends CConsoleCommand
 
 				$transactions = Tokens::model()->findAll($criteria);
 
-				// echo '<pre>'.print_r($transactions,true).'</pre>';
-				$this->log("Ricerca Transazioni: ".'<pre>'.print_r($transactions,true).'</pre>');
+				//echo '<pre>'.print_r($transactions,true).'</pre>';
+				//$this->log("Ricerca Transazioni: ".'<pre>'.print_r($transactions,true).'</pre>');
 				//exit;
 
 				if (!empty($transactions))
@@ -166,19 +176,15 @@ class ReceiveCommand extends CConsoleCommand
 			}
 
 			//conto alla rovescia fino alla scadenza dell'invoice
-			#fwrite($this->getLogFile(), date('Y/m/d h:i:s a', time()) . " : '.$ReceivingType.' Status: ".$tokens->status.", Seconds: ".$expiring_seconds."\n");
+			$this->log("Invoice: $id, Status: ".$invoice->status.", Seconds: ".$expiring_seconds."\n");
 			//echo chr(32).$expiring_seconds;
-			$this->log("remaining seconds... $expiring_seconds");
+			// $this->log("remaining seconds... $expiring_seconds");
 			$expiring_seconds --;
 			sleep(1);
 		}
 	}
 
 	private function sendIpn($ipn){
-		$nomeLogFile = Yii::app()->basePath."/log/pos-ipn.log";
-		$myfile = fopen($nomeLogFile, "a");
-		$this->setLogFile($myfile);
-		//
 		$tokens = (object) $ipn;
 
 		if (true === empty($tokens)) {
