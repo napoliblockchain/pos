@@ -110,7 +110,7 @@ class ReceiveCommand extends CConsoleCommand
 				$transactions = Tokens::model()->findAll($criteria);
 
 				//echo '<pre>'.print_r($transactions,true).'</pre>';
-				//$this->log("Ricerca Transazioni: ".'<pre>'.print_r($transactions,true).'</pre>');
+
 				//exit;
 
 				if (!empty($transactions))
@@ -121,6 +121,7 @@ class ReceiveCommand extends CConsoleCommand
 						$this->log("Transazione n. $transaction->id_token");
 						if ($transaction->status <> 'new'){
 							$this->log("Transazione n. $transaction->id_token COMPLETATA.");
+							$this->log('<pre>'.print_r($transaction->attributes,true).'</pre>');
 							$invoice->status = $transaction->status;
 							$invoice->token_ricevuti = $transaction->token_price;
 							$invoice->from_address = $transaction->from_address;
