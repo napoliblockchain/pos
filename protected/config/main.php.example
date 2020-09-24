@@ -1,18 +1,18 @@
 <?php
-$nomeApplicazione = 'Napay POS';
-$shortName = 'POS';
+$nomeApplicazione = 'Fidelize POS';
+$shortName = 'Fidelize POS';
 //
-$logoAssociazione = '/css/images/logonapay.png';
-$logoAssociazionePrint = '/css/images/anb-trasparente-single2.png';
+$logoAssociazione = '/css/images/logo.png';
+$logoAssociazionePrint = '/css/images/logo.png';
 
-$logoApplicazione = '/css/images/napay-yellow.png';
-$logoUnito = '/css/images/napay-viola.png';
+$logoApplicazione = '/css/images/logo.png';
+$logoUnito = '/css/images/logo.png';
 
 $timeOutSeconds = 3600*24*30; // 1 mese
 
 //configurazione email
-$adminEmail = 'info@napoliblockchain.it';
-$adminName = 'Napoli Blockchain ';
+$adminEmail = 'info@txlab.it';
+$adminName = 'txlab ';
 $adminIndirizzo = "Piazza Municipio, 1\n80100 - Napoli\nP.Iva: 011233455667";
 
 //configurazione Token
@@ -34,7 +34,7 @@ $blockchainCheck = 'https://blockchair.com/search?q=';
 // CWebApplication properties can be configured here.
 Yii::setPathOfAlias('bootstrap', dirname(__FILE__).'/../extensions/bootstrap');
 
-$libsPath = dirname(__FILE__).DIRECTORY_SEPARATOR.'../../../packages/';
+$libsPath = dirname(__FILE__).DIRECTORY_SEPARATOR.'../../../fidelize-packages';
 Yii::setPathOfAlias('libs', $libsPath);
 
 return array(
@@ -153,7 +153,6 @@ return array(
 		'timeOutSeconds'=>$timeOutSeconds,
 		'shortName'=>$shortName,
 		'blockchainCheck'=>$blockchainCheck,
-		'blockchainEthereum'=>$blockchainEthereum,
 
 		'TokenImage'=>$TokenImage,
 		'TokenNameComplete'=>$TokenNameComplete,

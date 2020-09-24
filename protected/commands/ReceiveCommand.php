@@ -84,12 +84,6 @@ class ReceiveCommand extends CConsoleCommand
 		$seconds = 1;
 		$events = true;
 
-		// preparo il log file
-		$nomeLogFile = Yii::app()->basePath."/log/pos-receive.log";
-		// if (!is_writable($nomeLogFile)){
-		// 	chmod($nomeLogFile, 0755);  // octal; correct value of mode
-		// }
-
 		$this->log("Start Check invoice #: $id");
 
 		//carico l'invoice
@@ -211,7 +205,7 @@ class ReceiveCommand extends CConsoleCommand
 		Push::Send($save->Notification($notification,true),'dashboard');
 
 		//ADESSO POSSO USCIRE CON UN MESSAGGIO POSITIVO ;^)
-		$this->log("IPN received for Invoice #: ".crypt::Encrypt($tokens->id_token).", Status=" .$tokens->status.", Price=". $tokens->token_price);
+		$this->log("IPN received for Invoice #: ".crypt::Encrypt($tokens->id_token).", Status=" .$tokens->status.", Price=". $tokens->token_price.", Received: ".$tokens->token_ricevuti);
 	}
 }
 ?>
