@@ -96,10 +96,10 @@ class QrcodeController extends Controller
 	 * @param POST integer id_token the ID of the model to be searched
 	 */
 	public function actionGetInvoiceStatus(){
-		$model = $this->loadModel(crypt::Decrypt($_POST['id_token']));
-		echo CJSON::encode(array("status"=>$model->status));
-	}
-	public function a2GetInvoiceStatus(){
+	// 	$model = $this->loadModel(crypt::Decrypt($_POST['id_token']));
+	// 	echo CJSON::encode(array("status"=>$model->status));
+	// }
+	// public function a2GetInvoiceStatus(){
 		$id = $_POST['id_token'];
 		// $this->log("Start Check invoice #: $id");
 
