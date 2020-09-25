@@ -105,7 +105,6 @@ class ReceiveCommand extends CConsoleCommand
 				$criteria->compare('item_desc','wallet');
 				$criteria->compare('to_address',$invoice->to_address);
 				$criteria->addCondition("invoice_timestamp > " .$invoice->invoice_timestamp);
-				//$criteria->addCondition("expiration_timestamp < " .$invoice->expiration_timestamp);
 				$criteria->addCondition("blocknumber > " .$invoice->blocknumber);
 				$criteria->compare('token_price',$invoice->token_price,false); // false -> valore identico
 
