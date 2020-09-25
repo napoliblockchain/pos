@@ -121,7 +121,7 @@ class QrcodeController extends Controller
 			$criteria->compare('to_address',$invoice->to_address);
 			$criteria->addCondition("invoice_timestamp > " .$invoice->invoice_timestamp);
 			$criteria->addCondition("blocknumber > " .$invoice->blocknumber);
-			$criteria->compare('token_price',$invoice->token_price,false); // false -> valore identico
+			$criteria->compare('token_price',$invoice->token_price,true); // false -> valore identico
 
 			$transactions = Tokens::model()->findAll($criteria);
 
