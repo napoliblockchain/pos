@@ -100,10 +100,10 @@ class ReceiveCommand extends CConsoleCommand
 				// cerco le transazioni su bolt_tokens in pending
 				$criteria=new CDbCriteria;
 
-				$criteria->compare('type','token',true);
+				$criteria->compare('type','token');
 				//$criteria->compare('status','new',true);
-				$criteria->compare('item_desc','wallet',true);
-				$criteria->compare('to_address',$invoice->to_address,true);
+				$criteria->compare('item_desc','wallet');
+				$criteria->compare('to_address',$invoice->to_address);
 				$criteria->addCondition("invoice_timestamp > " .$invoice->invoice_timestamp);
 				//$criteria->addCondition("expiration_timestamp < " .$invoice->expiration_timestamp);
 				$criteria->addCondition("blocknumber > " .$invoice->blocknumber);
