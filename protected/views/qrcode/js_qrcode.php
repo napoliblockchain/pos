@@ -99,10 +99,12 @@ $myScript = <<<JS
 		var minutes = {$minutes}
 		var ss = {$ss}
 
+		// tempo di scadenza
 		var	ts = new Date(yyyy,mm,dd,hh,minutes,ss);
 
+		// controllo se il time di adesso è > del time di scadenza
 		if((new Date()) > ts){
-			checkPayment(100);//fattura scaduta
+			checkPayment(100); //fattura scaduta
 		}
 		$('#countdown').countdown({
 			timestamp	: ts,

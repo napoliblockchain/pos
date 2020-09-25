@@ -107,7 +107,7 @@ class ReceiveCommand extends CConsoleCommand
 				$criteria->addCondition("invoice_timestamp > " .$invoice->invoice_timestamp);
 				//$criteria->addCondition("expiration_timestamp < " .$invoice->expiration_timestamp);
 				$criteria->addCondition("blocknumber > " .$invoice->blocknumber);
-				$criteria->compare('token_price',$invoice->token_price,true);
+				$criteria->compare('token_price',$invoice->token_price,false); // false -> valore identico
 
 				$transactions = Tokens::model()->findAll($criteria);
 				//echo '<pre>'.print_r($transactions,true).'</pre>';
