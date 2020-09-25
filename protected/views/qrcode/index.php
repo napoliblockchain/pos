@@ -130,7 +130,7 @@ include ('js_qrcode.php');
 								<div class="payment__scan">
 									<?php
 									$this->widget('application.extensions.qrcode.QRCodeGenerator',array(
-										'data' => $model->to_address, //.'?amount='.$model->token_price,
+										'data' => $model->to_address.'?amount='.$model->token_price,
 										'filename' => $merchants->id_merchant . '.png',
 										'filePath' => Yii::app()->basePath . '/qrcodes/',
 										'subfolderVar' => false,
