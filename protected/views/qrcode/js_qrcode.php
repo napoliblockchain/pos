@@ -66,7 +66,7 @@ $myScript = <<<JS
 							break;
 
 						case 'paid':
-            			case 'complete':
+            case 'complete':
 							$('.return-button').show();
 							$( ".bp-view" ).removeClass( "active" );
 							$( "#paid" ).addClass( "active" );

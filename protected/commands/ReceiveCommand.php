@@ -149,7 +149,7 @@ class ReceiveCommand extends CConsoleCommand
 						}
 					}//foreach loop
 				}
-				if ($expiring_seconds < 0){//invoice expired
+				if ($ipnflag === false && $expiring_seconds < 0){//invoice expired
 					$invoice->status = 'expired';
 					$ipnflag = true;
 				}
@@ -161,7 +161,9 @@ class ReceiveCommand extends CConsoleCommand
 				#fwrite($this->getLogFile(), date('Y/m/d h:i:s a', time()) . " : <pre>".print_r($tokens->attributes,true)."</pre>\n");
 				//echo '<pre>'.print_r($invoice->attributes,true).'</pre>';
 				if ($invoice->save()){
-					$this->log("End : invoice #: $id, Status: $invoice->status, Received: $invoice->token_ricevuti");
+					$this->log("Invoice n. $invoice->id_token SALVATA.");
+					$this->log('<pre>'.print_r($invoice->attributes,true).'</pre>');
+					//$this->log("End : invoice #: $id, Status: $invoice->status, Received: $invoice->token_ricevuti");
 					$this->sendIpn($invoice->attributes);
 				}else{
 					$this->log("Error : Cannot save invoice #. $id, Status: $invoice->status.");
