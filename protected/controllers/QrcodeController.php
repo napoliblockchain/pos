@@ -96,9 +96,10 @@ class QrcodeController extends Controller
 	 * @param POST integer id_token the ID of the model to be searched
 	 */
 	public function actionGetInvoiceStatus(){
-		// $model = $this->loadModel(crypt::Decrypt($_POST['id_token']));
-		// echo CJSON::encode(array("status"=>$model->status));
-
+		$model = $this->loadModel(crypt::Decrypt($_POST['id_token']));
+		echo CJSON::encode(array("status"=>$model->status));
+	}
+	public function a2GetInvoiceStatus(){
 		$id = $_POST['id_token'];
 		// $this->log("Start Check invoice #: $id");
 
@@ -181,14 +182,12 @@ class QrcodeController extends Controller
 				$this->log("Error : Cannot save invoice #. $id, Status: $invoice->status.");
 			}
 		}
-
 		//conto alla rovescia fino alla scadenza dell'invoice
 		$this->log("Invoice: $id, Status: ".$invoice->status.", Seconds: ".$expiring_seconds."\n");
-
 		// ritorno lo stato
 		echo CJSON::encode(array("status"=>$invoice->status));
-
 	}
+
 	private function sendIpn($ipn){
 		$tokens = (object) $ipn;
 
