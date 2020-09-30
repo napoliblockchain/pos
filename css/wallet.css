@@ -2,6 +2,9 @@
     .header-wrap .notifi-dropdown {
         left: auto !important;
     }
+  .main-content {
+    padding-top: 25px;
+  }
 }
 @media only screen and (min-width: 321px) and (max-width: 360px) {
   .container-wallet {

@@ -268,7 +268,7 @@ class BackendController extends Controller
 		/**
 		*	AUTOLOADER GATEWAYS
 		*/
-		// $btcpay = Yii::app()->basePath . '/extensions/gateways/btcpayserver/Btcpay/Autoloader.php';
+		// $btcpay = Yii::app()->basePath . '/extensions/gateways/btcpayserver-php-v1/Btcpay/Autoloader.php';
 		$btcpay = Yii::app()->params['libsPath'] . '/gateways/btcpayserver-php-v1/Btcpay/Autoloader.php';
 		if (true === file_exists($btcpay) &&
 				true === is_readable($btcpay))

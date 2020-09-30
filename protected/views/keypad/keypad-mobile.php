@@ -11,20 +11,10 @@ include ('js_main.php');  // main application
 ?>
 <div class='section__content section__content--p30'>
 	<div class='container-fluid'>
-		<div class="row">
+		<div class="row row-keypad-mobile">
 			<div class="col-lg-7">
 				<div class="card bg-dark">
-					<!-- <div class="card-header error-header">
-						<span class="card-title text-light">
-							<div class="error-message m-t-20 m-b-20">&nbsp;</div>
-						</span>
-					</div> -->
-					<div class="card-header alert error-header" role="alert" style="display:none;">
-						<button type="button" class="close" data-dismiss="alert" aria-label="Close">
-							<span aria-hidden="true">×</span>
-						</button>
-						<p class="error-message"></p>
-					</div>
+					
 					<div class="card-body card-block">
 						<div class='easy-get'></div>
 					</div>

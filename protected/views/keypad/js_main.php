@@ -46,12 +46,22 @@ $myPos = <<<JS
         return 0;
     }
 
+    function showError(message){
+      $('.error-message').text(message);
+      $('.error-header').addClass("bg-danger").show();
+      $('.easy-numpad-output-container-content').hide();
+      setTimeout(function(){
+        $('.error-header').removeClass("bg-danger").hide();
+        $('.easy-numpad-output-container-content').show();
+
+      }, 5000);
+    }
+
     tokenInvoice.addEventListener('click', function(){
         event.preventDefault();
         if (tokenAuth == false){
-            $('.error-header').addClass("bg-danger").show();
-            $('.error-message').text('Indirizzo wallet non trovato. Non è possibile ricevere Token!');
-            return false;
+          showError('Indirizzo wallet non trovato. Non è possibile ricevere Token!');
+          return false;
         }
 
         var amount_val = $('#easy-numpad-output').text();
@@ -59,11 +69,9 @@ $myPos = <<<JS
             return false;
 
         if (countDecimals(amount_val) > 2){
-            $('.error-header').addClass("bg-danger").show();
-            $('.error-message').text('Errore. Utilizzare massimo 2 cifre decimali');
-            return false;
+          showError('Errore. Utilizzare massimo 2 cifre decimali');
+          return false;
         }
-
 
         $.ajax({
             url:'{$urlTokenController}',
@@ -83,19 +91,17 @@ $myPos = <<<JS
                 $('#waiting_span-token').show();
 
                 if (data.error){
-                    $('.error-header').addClass("bg-danger").show();
-                    $('.error-message').text(data.error);
-                    return false;
+                  showError(data.error);
+                  return false;
                 }else{
-                    window.location.href = data.url;
+                  window.location.href = data.url;
                 }
             },
             error: function(j){
                 var json = jQuery.parseJSON(j.responseText);
                 $('#waiting_span-token').show();
                 $('.waiting_span').remove();
-                $('.error-header').addClass("bg-danger").show();
-                $('.error-message').text(json.error);
+                showError(json.error);
             }
         });
     });
@@ -107,9 +113,8 @@ $myPos = <<<JS
             return false;
 
         if (countDecimals(amount_val) > 2){
-            $('.error-header').addClass("bg-danger").show();
-            $('.error-message').text('Errore. Utilizzare massimo 2 cifre decimali');
-            return false;
+          showError('Errore. Utilizzare massimo 2 cifre decimali');
+          return false;
         }
 
         $.ajax({
@@ -130,22 +135,20 @@ $myPos = <<<JS
                 console.log(data);
 
                 if (data.error){
-                    $('.error-header').addClass("bg-danger").show();
-                    $('.error-message').text(data.error);
-                    return false;
+                  showError(data.error);
+                  return false;
                 }else{
-                    if ('{$gateways->action_controller}' != 'Bitpay')
-                        window.location.href = data.url;
-                    else
-                        top.location = data.url;
+                  if ('{$gateways->action_controller}' != 'Bitpay')
+                    window.location.href = data.url;
+                  else
+                    top.location = data.url;
                 }
             },
             error: function(j){
-                var json = jQuery.parseJSON(j.responseText);
-                $('#waiting_span-btc').show();
-                $('.waiting_span').remove();
-                $('.error-header').addClass("bg-danger").show();
-                $('.error-message').text(json.error);
+              var json = jQuery.parseJSON(j.responseText);
+              $('#waiting_span-btc').show();
+              $('.waiting_span').remove();
+              showError(json.error);
             }
         });
     });

@@ -1,4 +1,16 @@
 <?php
+Yii::import('libs.crypt.crypt');
+Yii::import('libs.NaPacks.Settings');
+Yii::import('libs.NaPacks.WebApp');
+Yii::import('libs.NaPacks.SaveModels');
+Yii::import('libs.NaPacks.Save');
+Yii::import('libs.NaPacks.Push');
+Yii::import('libs.ethereum.eth');
+Yii::import('libs.Utils.Utils');
+
+Yii::import('libs.BTCPay.BTCPayWebRequest');
+Yii::import('libs.BTCPay.BTCPay');
+
 require_once Yii::app()->params['libsPath'] . '/ethereum/web3/vendor/autoload.php';
 
 use Web3\Web3;
@@ -130,7 +142,7 @@ class InvoicesController extends Controller
 				"error"=>'Error: All Nodes are down.',
 			);
 		}else{
-			$web3 = new Web3($poaNode);	
+			$web3 = new Web3($poaNode);
 
 			// blocco in cui presumibilmente avviene la transazione
 			$block = null;
@@ -278,7 +290,7 @@ class InvoicesController extends Controller
 		/**
 		*	AUTOLOADER GATEWAYS
 		*/
-		$btcpayserver = Yii::app()->params['libsPath'] . '/gateways/btcpayserver/Btcpay/Autoloader.php';
+		$btcpayserver = Yii::app()->params['libsPath'] . '/gateways/btcpayserver-php-v1/Btcpay/Autoloader.php';
 		if (true === file_exists($btcpayserver) &&  true === is_readable($btcpayserver)){
 				require_once $btcpayserver;
 				\Btcpay\Autoloader::register();

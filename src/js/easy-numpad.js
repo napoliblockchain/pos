@@ -1,26 +1,29 @@
-//$(document).ready(function () {
-   // $('.easy-get').on('click', () => {
-        //show_easy_numpad();
-   // });
-//});
-
 function show_easy_numpad() {
     var easy_numpad = `
         <div class="easy-numpad-frame" id="easy-numpad-frame">
             <div class="easy-numpad-container">
+              <div class="easy-numpad-frame-output-container">
+                <center>
                 <div class="easy-numpad-output-container">
+                  <div class="card-header alert error-header" role="alert" style="display:none;">
+                    <p class="error-message"></p>
+                  </div>
+                  <div class='easy-numpad-output-container-content'>
                     <small class="float-right easy-numpad-output-symbol">€</small>
                     <p class="easy-numpad-output" id="easy-numpad-output">0</p>
                     <small class="card-title float-right"><i class="fab fa-btc easy-numpad-output-bitcoin-symbol"></i></small>
                     <p class="easy-numpad-output-bitcoin" id="easy-numpad-output-bitcoin">0</p>
+                  </div>
                 </div>
+                </center>
+              </div>
 
                 <div class="easy-numpad-number-container">
                     <table border=0>
                         <tr>
-                            <td width="33%"><span onclick="easynum(7)">7</span></td>
-                            <td width="33%"><span onclick="easynum(8)">8</span></td>
-                            <td width="33%"><span onclick="easynum(9)">9</span></td>
+                            <td width="33%"><span onclick="easynum(1)">1</span></td>
+                            <td width="33%"><span onclick="easynum(2)">2</span></td>
+                            <td width="33%"><span onclick="easynum(3)">3</span></td>
                         </tr>
                         <tr>
                             <td><span onclick="easynum(4)">4</span></td>
@@ -29,22 +32,28 @@ function show_easy_numpad() {
 
                         </tr>
                         <tr>
-                            <td><span onclick="easynum(1)">1</a></td>
-                            <td><span onclick="easynum(2)">2</a></td>
-                            <td><span onclick="easynum(3)">3</a></td>
+                            <td><span onclick="easynum(7)">7</a></td>
+                            <td><span onclick="easynum(8)">8</a></td>
+                            <td><span onclick="easynum(9)">9</a></td>
                         </tr>
                         <tr>
-                            <td><span onclick="easynum(0)">0</span></td>
                             <td><span onclick="easynum(\'.\')">.</span></td>
-                            <td><span class="del" id="del" onclick="easy_numpad_del()">C</span></td>
+                            <td><span onclick="easynum(0)">0</span></td>
+                            <td><span class="del" id="del" onclick="easy_numpad_del()"><i class="fa fa-undo"></i></span></td>
                         </tr>
                     </table>
                     <center>
-                    <small><button class="btn btn-success btn-sm done" id="done" name='confirm' type='button'>
-                        <i class="fab fa-btc smaller"></i>&nbsp;<span id='waiting_span-btc' class="smaller">bitcoin</span></button></small>
+                      <small>
+                        <button class="btn btn-success btn-sm done" id="done" name='confirm' type='button'>
+                          <i class="fab fa-btc smaller"></i>&nbsp;<span id='waiting_span-btc' class="smaller">bitcoin</span>
+                        </button>
+                      </small>
 
-                    <small><button class="btn btn-primary btn-sm token" id="token" name='token' type='button'>
-                        <i class="fab fa-ethereum smaller"></i>&nbsp;<span id='waiting_span-token' class="smaller">token</span></button></small>
+                      <small>
+                        <button class="btn btn-primary btn-sm token" id="token" name='token' type='button'>
+                          <i class="fab fa-ethereum smaller"></i>&nbsp;<span id='waiting_span-token' class="smaller">token&nbsp;&nbsp;</span>
+                        </button>
+                      </small>
                     </center>
                 </div>
             </div>
@@ -78,6 +87,8 @@ function easynum(num) {
     }
 
     var easy_num_text = $('#easy-numpad-output').text();
+
+    // console.log('Text length: ',easy_num_text.length());
 
     if (isNaN(num)){
         if(!easy_num_text.includes('.'))
