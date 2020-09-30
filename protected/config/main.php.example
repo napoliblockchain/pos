@@ -34,7 +34,7 @@ $blockchainCheck = 'https://blockchair.com/search?q=';
 // CWebApplication properties can be configured here.
 Yii::setPathOfAlias('bootstrap', dirname(__FILE__).'/../extensions/bootstrap');
 
-$libsPath = dirname(__FILE__).DIRECTORY_SEPARATOR.'../../../packages/';
+$libsPath = dirname(__FILE__).DIRECTORY_SEPARATOR.'../../../napay-packages';
 Yii::setPathOfAlias('libs', $libsPath);
 
 return array(
