@@ -3,8 +3,8 @@ importScripts('src/js/idb.js');
 importScripts('src/js/utility.js');
 
 // quando cambi questi valori modificali anche in protected/view/layouts/js_sw.php
-var CACHE_STATIC_NAME = 'napay-pos-static-v12';
-var CACHE_DYNAMIC_NAME = 'napay-pos-dynamic-v12';
+var CACHE_STATIC_NAME = 'napay-pos-static-v12b';
+var CACHE_DYNAMIC_NAME = 'napay-pos-dynamic-v12b';
 var STATIC_FILES = [
 	'/',
 	'offline.php',

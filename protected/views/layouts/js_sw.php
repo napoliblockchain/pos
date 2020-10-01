@@ -4,8 +4,8 @@ $BtcPayServerSIN = Yii::app()->user->objUser['sin'];
 $serviceWorker = <<<JS
 
     // quando cambi questi valori modificali anche in sw.js
-    var CACHE_STATIC_NAME = 'napay-pos-static-v12';
-    var CACHE_DYNAMIC_NAME = 'napay-pos-dynamic-v12';
+    var CACHE_STATIC_NAME = 'napay-pos-static-v12b';
+    var CACHE_DYNAMIC_NAME = 'napay-pos-dynamic-v12b';
 
     function trimCache(cacheName, maxItems) {
     	caches.open(cacheName)

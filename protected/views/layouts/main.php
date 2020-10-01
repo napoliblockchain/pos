@@ -82,8 +82,8 @@
         <div class="page-container">
             <!-- HEADER DESKTOP-->
             <?php
-            if (!Yii::app()->user->isGuest)
-                include ('header_desktop.php');
+            // if (!Yii::app()->user->isGuest)
+            //     include ('header_desktop.php');
             ?>
             <!-- HEADER DESKTOP-->
 

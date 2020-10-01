@@ -69,21 +69,19 @@
 <body class="animsition">
     <div class="page-wrapper">
         <!-- HEADER MOBILE-->
-            <?php include ('header_mobile.php'); ?>
+        <?php include ('header_mobile.php'); ?>
         <!-- END HEADER MOBILE-->
 
         <!-- MENU SIDEBAR-->
-            <?php
-			include ('menu_aside.php');
-			?>
+        <?php	include ('menu_aside.php');	?>
         <!-- END MENU SIDEBAR-->
 
         <!-- PAGE CONTAINER-->
         <div class="page-container">
             <!-- HEADER DESKTOP-->
             <?php
-            if (!Yii::app()->user->isGuest)
-                include ('header_desktop.php');
+            // if (!Yii::app()->user->isGuest)
+            //     include ('header_desktop.php');
             ?>
             <!-- HEADER DESKTOP-->
 

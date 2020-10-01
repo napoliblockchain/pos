@@ -3,6 +3,9 @@
 		<div class="container-fluid">
 			<div class="header-mobile-inner">
 				<?php Logo::header(); ?>
+
+				<?php include ('header_desktop_new.php'); ?>
+
 				<button class="hamburger hamburger--slider" type="button">
 					<span class="hamburger-box">
 						<span class="hamburger-inner"></span>

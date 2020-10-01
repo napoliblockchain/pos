@@ -68,8 +68,8 @@ a#easy-numpad-close {
   /* background-color: rgba(10, 20, 50, 0.8); */
   font-variant-numeric: oldstyle-nums;
   font-size: 0.7em;
-  padding-left: 30px;
-  padding-right: 30px;
+  /* padding-left: 30px;
+  padding-right: 30px; */
   background-color: #282828;
 
   border: groove;
@@ -85,7 +85,7 @@ a#easy-numpad-close {
 
     min-height: 50px;
     box-sizing: border-box;
-    margin: 0px 0px 5px 0px;
+    margin: 0px 30px 5px 0px;
     text-align: right;
     /* font-size: 0.9em; */
     /* width: 102%; */
@@ -104,6 +104,7 @@ a#easy-numpad-close {
     /* font-size: 0.8em; */
     top:5px;
     margin-left: 5px;
+    margin-right: 20px;
 }
 .easy-numpad-output-bitcoin-symbol {
     position: relative;
@@ -111,6 +112,7 @@ a#easy-numpad-close {
     color: rgba(255, 120, 50, 0.8);
     top:-8px;
     margin-left: 5px;
+    margin-right: 20px;
 }
 
 .easy-numpad-container {

@@ -1,15 +1,29 @@
-
+.header-mobile .header-mobile__bar {
+    padding: 0px 0;
+}
 
 @media (max-width: 991px) {
   .header-wrap .notifi-dropdown {
         left: auto !important;
     }
+
+  .notifi-dropdown {
+    left: -268px;
+    top: 28px;
+  }
   .main-content {
-    padding-top: 25px;
+    padding-top: 0px;
   }
   .header-button {
-      margin-top: 0px;
-    }
+    position: relative;
+    float: right;
+
+    width: 1px;
+    top: 10px;
+
+    margin-top: 0px;
+    margin-right: 3px;
+  }
 }
 @media only screen and (min-width: 321px) and (max-width: 360px) {
   .container-wallet {
@@ -264,8 +278,9 @@ nav.navbar-mobile {
 #poa-pulse{
   position: relative;
   float:right;
-  margin-top: 15px;
-  margin-right: 22px;
+  top: 10px;
+  /* margin-top: 15px;
+  margin-right: 22px; */
 }
 
 .pulse-button {
@@ -331,7 +346,7 @@ h1 small.logo-descri {
     background: darkslategray;
 }
 .notifi-dropdown:before{
-    left: 10px !important;
+    left: 266px !important;
 }
 .warning-message {
     margin-top: -23px;
