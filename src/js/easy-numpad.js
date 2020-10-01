@@ -88,7 +88,8 @@ function easynum(num) {
 
     var easy_num_text = $('#easy-numpad-output').text();
 
-    // console.log('Text length: ',easy_num_text.length());
+    if (easy_num_text.length > 10)
+      return false;
 
     if (isNaN(num)){
         if(!easy_num_text.includes('.'))

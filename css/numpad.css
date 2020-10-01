@@ -28,9 +28,9 @@ a {
 
 .easy-numpad-frame {
     /* font-family: 'Orbitron'; */
-    /* font-family: verdana, courier, cursive, fantasy, monospace; */
+    font-family: verdana, courier, cursive, fantasy, monospace;
     /* font-family: Arial, Helvetica, sans-serif; */
-    font-family: monospace;
+    /* font-family: monospace; */
 
     position: relative;
     /* top: -18px; */
@@ -203,6 +203,7 @@ a#easy-numpad-close {
 .smaller{
     text-transform: lowercase;
     font-weight: lighter;
+    font-size: smaller;
 }
 
 

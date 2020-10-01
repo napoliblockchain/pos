@@ -2,7 +2,8 @@
 
 // This is the configuration for yiic console application.
 // Any writable CConsoleApplication properties can be configured here.
-$libsPath = dirname(__FILE__).DIRECTORY_SEPARATOR.'../../../libs/';
+$libsPath = dirname(__FILE__).DIRECTORY_SEPARATOR.'../../../napay-packages';
+Yii::setPathOfAlias('libs', $libsPath);
 
 return array(
 	'basePath'=>dirname(__FILE__).DIRECTORY_SEPARATOR.'..',
