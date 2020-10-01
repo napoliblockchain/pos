@@ -77,6 +77,16 @@
 				<a href='<?php echo Yii::app()->createUrl('site/contactForm'); ?>' target="_blank">
 					 <?php echo Yii::t('lang','Bug report');?> <i class="fa fa-bug"></i></a>
 			</li>
+			<li>
+				<a href="<?php echo Yii::app()->createUrl('settings/index',array('id'=>crypt::Encrypt(Yii::app()->user->objUser['id_user'])));?>">
+					 <?php echo Yii::t('lang','Settings');?> <i class="fa fa-gear"></i></a>
+			</li>
+			<li>
+				<div class="delete-serviceWorker">
+						<a href="<?php echo Yii::app()->createUrl('site/logout');?>" >
+						<?php echo Yii::t('lang','Logout');?> <i class="fa fa-power-off"></i></a>
+				</div>
+			</li>
 
 
 			<?php } ?>

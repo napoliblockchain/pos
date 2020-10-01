@@ -1,10 +1,15 @@
+
+
 @media (max-width: 991px) {
-    .header-wrap .notifi-dropdown {
+  .header-wrap .notifi-dropdown {
         left: auto !important;
     }
   .main-content {
     padding-top: 25px;
   }
+  .header-button {
+      margin-top: 0px;
+    }
 }
 @media only screen and (min-width: 321px) and (max-width: 360px) {
   .container-wallet {
@@ -16,6 +21,12 @@
   .container-wallet {
     padding-left: 4px !important;
     padding-right: 60px !important;
+  }
+}
+
+@media (max-width: 991px) {
+  .header-desktop {
+      height: 45px;
   }
 }
 

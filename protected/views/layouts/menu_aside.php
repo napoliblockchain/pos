@@ -74,6 +74,18 @@
 							 <i class="fa fa-bug"></i><?php echo Yii::t('lang','Bug report');?></a>
 					</li>
 
+					<li>
+						<a href="<?php echo Yii::app()->createUrl('settings/index',array('id'=>crypt::Encrypt(Yii::app()->user->objUser['id_user'])));?>">
+							 <i class="fa fa-gear"></i><?php echo Yii::t('lang','Settings');?> </a>
+					</li>
+					<li>
+						<div class="delete-serviceWorker">
+								<a href="<?php echo Yii::app()->createUrl('site/logout');?>" >
+								<i class="fa fa-power-off"></i><?php echo Yii::t('lang','Logout');?> </a>
+						</div>
+					</li>
+
+
 				</ul>
 
 			<?php } ?>
