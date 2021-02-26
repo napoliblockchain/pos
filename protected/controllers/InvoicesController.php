@@ -65,7 +65,7 @@ class InvoicesController extends Controller
 	{
 		// TEST SCRIPT
 		// $cmd = Yii::app()->basePath.DIRECTORY_SEPARATOR.'yiic receive --id='.crypt::Encrypt(658);
-		// Utils::execInBackground($cmd);
+		// Seclib::execInBackground($cmd);
 		// //finalmente ritorno all'app e restituisco l'url con il qr-code della transazione da pagare!!!
 		// $send_json = array(
 		// 	'success'=> 1,
@@ -130,7 +130,7 @@ class InvoicesController extends Controller
 				"error"=>'Error: All Nodes are down.',
 			);
 		}else{
-			$web3 = new Web3($poaNode);	
+			$web3 = new Web3($poaNode);
 
 			// blocco in cui presumibilmente avviene la transazione
 			$block = null;
@@ -214,7 +214,7 @@ class InvoicesController extends Controller
 
 			//eseguo lo script che si occuperà in background di verificare lo stato dell'invoice appena creata...
 			$cmd = Yii::app()->basePath.DIRECTORY_SEPARATOR.'yiic receive --id='.crypt::Encrypt($invoice->id_token);
-			Utils::execInBackground($cmd);
+			Seclib::execInBackground($cmd);
 
 			//finalmente ritorno all'app e restituisco l'url con il qr-code della transazione da pagare!!!
 			$send_json = array(

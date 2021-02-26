@@ -100,7 +100,7 @@ class TokensController extends Controller
 
 		//eseguo lo script che si occuperà in background di verificare lo stato dell'invoice appena creata...
 		$cmd = Yii::app()->basePath.DIRECTORY_SEPARATOR.'yiic ' .$command. ' --id='.$id;
-		Utils::execInBackground($cmd);
+		Seclib::execInBackground($cmd);
 
 		$response['message'] = 'Please wait the page reloading... ';
 		$response['success'] = 1;
