@@ -59,7 +59,7 @@ class POSIdentity extends CUserIdentity
 			*	VERIFICA SE IL SOCIO HA PAGATO LA QUOTA D'ISCRIZIONE
 			*/
 			// ma se SEi amministratore non fai il controllo
-			if ($UserPrivileges[$record->id_users_type] != 20 && $tmpFlagDisableCheckPayments == false){
+			if ($UserPrivileges[$users->id_users_type] != 20 && $tmpFlagDisableCheckPayments == false){
 				$timestamp = time();
 				$criteria = new CDbCriteria();
 				$criteria->compare('id_user',$merchants->id_user, false);
