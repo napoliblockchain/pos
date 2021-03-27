@@ -53,34 +53,39 @@ class POSIdentity extends CUserIdentity
 			//$NomePOS .= chr(32).$stores->denomination;
 			//$NomePOS .= chr(32).$merchants->denomination;
 
+			// set this flag true if you don't want check payuments
+			$tmpFlagDisableCheckPayments = true;
 			/*
 			*	VERIFICA SE IL SOCIO HA PAGATO LA QUOTA D'ISCRIZIONE
 			*/
-			$timestamp = time();
-			$criteria = new CDbCriteria();
-			$criteria->compare('id_user',$merchants->id_user, false);
+			// ma se SEi amministratore non fai il controllo
+			if ($UserPrivileges[$record->id_users_type] != 20 && $tmpFlagDisableCheckPayments == false){
+				$timestamp = time();
+				$criteria = new CDbCriteria();
+				$criteria->compare('id_user',$merchants->id_user, false);
 
-			$provider = Pagamenti::model()->Paid()->OrderByIDDesc()->findAll($criteria);
-			if ($provider === null){
-				//$expiration_membership = $timestamp;
-				$this->errorCode=self::ERROR_USERNAME_NOT_PAYER;
-				$save->WriteLog('pos','useridentity','authenticate','User not payer: '.$this->username);
-				return !$this->errorCode;
-			}else{
-				$provider = (array) $provider;
-				if (count($provider) == 0)
-					$expiration_membership = 1;
-				else
-					$expiration_membership = strtotime($provider[0]->data_scadenza);
-			}
-			// scadenza entro il 31 gennaio per provvedere all'iscrizione (se la data_scadenza
-			// è al 31 dicembre)
-			// temporaneamente posticipato al 28 febbraio
-			$expiration_membership += (31+28) *24*60*60;
-			if ($expiration_membership <= $timestamp){
-				$this->errorCode=self::ERROR_USERNAME_NOT_MEMBER;
-				$save->WriteLog('pos','useridentity','authenticate','User not member: '.$this->username);
-				return !$this->errorCode;
+				$provider = Pagamenti::model()->Paid()->OrderByIDDesc()->findAll($criteria);
+				if ($provider === null){
+					//$expiration_membership = $timestamp;
+					$this->errorCode=self::ERROR_USERNAME_NOT_PAYER;
+					$save->WriteLog('pos','useridentity','authenticate','User not payer: '.$this->username);
+					return !$this->errorCode;
+				}else{
+					$provider = (array) $provider;
+					if (count($provider) == 0)
+						$expiration_membership = 1;
+					else
+						$expiration_membership = strtotime($provider[0]->data_scadenza);
+				}
+				// scadenza entro il 31 gennaio per provvedere all'iscrizione (se la data_scadenza
+				// è al 31 dicembre)
+				// temporaneamente posticipato al 28 febbraio
+				$expiration_membership += (31+28) *24*60*60;
+				if ($expiration_membership <= $timestamp){
+					$this->errorCode=self::ERROR_USERNAME_NOT_MEMBER;
+					$save->WriteLog('pos','useridentity','authenticate','User not member: '.$this->username);
+					return !$this->errorCode;
+				}
 			}
 
 			$save->WriteLog('pos','useridentity','authenticate','User '.$this->username. ' logged in.');
