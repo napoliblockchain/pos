@@ -1,0 +1,31 @@
+services:
+  web:
+    image: napay/pos-v2:dev
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    env_file: ${POS_ENV_FILE:?Set private POS env file}
+    restart: unless-stopped
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    volumes:
+      - runtime:/srv/pos/runtime
+    tmpfs:
+      - /tmp
+      - /var/run/apache2
+      - /var/lock/apache2
+    networks:
+      browser:
+        aliases: [pos-v2-web]
+    healthcheck:
+      test: [CMD, curl, --fail, --silent, http://127.0.0.1/health]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+networks:
+  browser:
+    external: true
+    name: napay_local_browser
+volumes:
+  runtime:

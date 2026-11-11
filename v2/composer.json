@@ -1,0 +1,10 @@
+{
+  "name": "napoliblockchain/pos-v2",
+  "description": "Napay POS Yii2 migration preview",
+  "type": "project",
+  "license": "MIT",
+  "require": {"php": ">=8.3.36", "yiisoft/yii2": "~2.0.55"},
+  "autoload": {"psr-4": {"app\\": ""}},
+  "repositories": [{"type": "composer", "url": "https://asset-packagist.org"}],
+  "config": {"platform": {"php": "8.3.36"}, "allow-plugins": false, "sort-packages": true}
+}
