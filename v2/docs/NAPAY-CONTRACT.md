@@ -5,7 +5,7 @@ Questo documento e allegato tecnico; non sostituisce SIP e approvazione della
 fase prima del codice. Requisiti confermati non implicano protocollo API approvato.
 
 - Data: 2026-11-11.
-- Stato: requisiti utente confermati; protocollo API da concordare con agente Napay.
+- Stato: requisiti e login POS/server-to-server confermati; dettagli API da concordare con agente Napay.
 - Perimetro: login operatore, selezione POS e apertura esclusiva; primo collaudo
   TTS su chain locale, senza denaro reale.
 - Nessun endpoint descritto qui e gia implementato. Il POS resta in anteprima.
@@ -34,12 +34,12 @@ Base proposta `/api/pos/v1`:
 | `POST /openings/{opening_id}/heartbeat` | Registrare contatto senza ripristinare aperture revocate. |
 | `POST /openings/{opening_id}/release` | Rilascio normale della propria apertura, non sblocco forzato. |
 
-Il primo login propone un canale server-to-server dal POS a Napay: identita
-del servizio POS piu sessione operatore opaca, revocabile. Token backend tenuti
-solo nella sessione server POS; cookie browser POS separato, HttpOnly/Secure,
-rigenerato al login. Password soltanto durante la verifica, mai persistita.
-Si tratta di una **proposta**, alternativa a login centralizzato/SSO da
-valutare con l'agente Napay, non di una scelta gia implementata.
+Flusso approvato dall'utente: login nel POS e verifica email/password via API
+Napay server-to-server, non redirect/SSO. Token backend tenuti solo nella
+sessione server POS; cookie browser POS separato, HttpOnly/Secure e rigenerato
+al login. Password soltanto durante la verifica, mai persistita o registrata.
+L'identita del servizio, il formato/scadenza del token e il wire protocol della
+bozza restano proposte da validare con l'agente Napay. Nessun login implementato.
 
 Il browser non chiama questa API direttamente, non riceve il token backend
 e non comunica con URL/host forniti dall'utente. Form login/apertura/logout del
@@ -62,8 +62,8 @@ precedente. Il formato wire della funzione manager resta all'agente Napay.
 
 Prima dell'integrazione l'agente backend deve confermare o correggere:
 
-1. Login server-to-server o autenticazione centralizzata; identita del servizio,
-   rotazione, scadenza sessione e modalita di revoca.
+1. Nel flusso server-to-server gia scelto: identita del servizio, rotazione,
+   formato/scadenza sessione e modalita di revoca.
 2. URL, identificativi pubblici, JSON, paginazione ed errori proposti.
 3. Relazione utente-negozio e lock unico persistente/atomico, con fencing.
 4. Chiusura normale/logout, recupero dopo refresh e gestione crash senza
@@ -104,9 +104,10 @@ abilitazioni grafiche non sono autorizzazione: il backend verifica utente,
 negozio e merchant a ogni operazione protetta, anche conoscendo un ID valido.
 Nessuna concessione implicita a tutti i negozi di un merchant.
 
-Le modalita tecniche di autenticazione tra `pos.localhost` e `napay.local`
-vanno definite con l'agente backend prima del codice: login centralizzato,
-trasporto server-to-server, credenziali/sessioni scoped e revocabili.
+Il flusso scelto tra `pos.localhost` e `napay.local` e server-to-server, con
+credenziali verificate da Napay e token solo sul server POS. Autenticazione del
+servizio e credenziali/sessioni scoped e revocabili vanno definite col backend
+prima del codice; nessun redirect al login centrale e previsto.
 Non condividere automaticamente cookie tra host, non salvare password/token
 in URL o localStorage, non esporre token backend al browser senza un design
 esplicito. Nessuna API pubblica o CORS permissiva per aggirare il problema.

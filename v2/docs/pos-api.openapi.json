@@ -3,9 +3,10 @@
   "info": {
     "title": "Napay POS operator API - DRAFT, not implemented",
     "version": "0.1.0-draft",
-    "description": "Server-to-server proposal. Backend agent approval required before integration. No payment endpoints. No browser access, SIN or wallet keys. Manager force-unlock remains in Napay backoffice with its own authorization and CSRF."
+    "description": "User-approved flow: POS email/password form with server-to-server Napay verification, token only in POS server session. Wire protocol and service authentication remain proposals requiring backend review. No payment endpoints, direct browser API access, SIN or wallet keys. Manager force-unlock remains in Napay backoffice with its own authorization and CSRF."
   },
   "x-contract-status": "draft-awaiting-backend-review",
+  "x-login-flow": "pos-form-server-to-server-approved",
   "servers": [
     {
       "url": "https://napay.local/api/pos/v1",
@@ -424,7 +425,7 @@
         "type": "apiKey",
         "in": "header",
         "name": "X-POS-Client-Key",
-        "description": "PROPOSED application authentication, rotated and stored only in private backend env. Not user authorization. Alternative mTLS/central login must be agreed with backend agent."
+        "description": "PROPOSED application authentication, rotated and stored only in private backend env. Not user authorization. API key versus mTLS must be agreed with backend agent within the approved server-to-server login flow."
       },
       "OperatorSession": {
         "type": "http",

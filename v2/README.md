@@ -10,6 +10,8 @@ Stessa CA di `napay.local` e `wallet.local`, nessuna nuova porta host.
 Prima dell'implementazione: [SIP-021](../../tips/SIP-021-pos-login-operatori-apertura-esclusiva.md).
 Le nuove fasi richiedono SIP documentato e approvato; nessuna implementazione
 deriva automaticamente dalla bozza OpenAPI.
+Flusso login approvato: email/password nel POS, verifica API Napay e token
+soltanto sul server POS. Dettagli API ancora da concordare; login non attivo.
 
 Questa e la **base navigabile di migrazione**, non un POS pronto a incassare.
 Tastierino, validazione importi lato server, layout mobile/desktop e protezioni
