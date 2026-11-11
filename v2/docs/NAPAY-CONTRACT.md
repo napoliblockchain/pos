@@ -6,6 +6,72 @@
   TTS su chain locale, senza denaro reale.
 - Nessun endpoint descritto qui e gia implementato. Il POS resta in anteprima.
 
+## Bozza tecnica per l'agente Napay
+
+Specifica proposta: [pos-api.openapi.json](pos-api.openapi.json), formato
+[OpenAPI 3.1](https://spec.openapis.org/oas/v3.1.0.html).
+Stato `draft-awaiting-backend-review`: **non e un accordo API gia raggiunto**.
+Non iniziare un client operativo dando per esistenti queste rotte.
+
+Rilevazione backend del 2026-11-11: Napay commit `a4f4ffe3` usa login solo email;
+nessun controller API POS presente. Il vecchio login tramite username non va
+riproposto. La password deve essere verificata dal backend con le regole
+centralizzate esistenti, senza copiarne hash o replicare la logica nel POS.
+
+Base proposta `/api/pos/v1`:
+
+| Metodo/percorso | Scopo |
+| --- | --- |
+| `POST /sessions` | Autenticare operatore con email/password. |
+| `DELETE /sessions` | Revocare sessione e rilasciare soltanto le sue aperture. |
+| `GET /terminals` | Catalogo POS filtrato per assegnazioni esplicite, paginato. |
+| `POST /terminals/{terminal_id}/openings` | Acquisire apertura esclusiva con chiave idempotenza. |
+| `GET /openings/{opening_id}` | Verificare titolarita e validita, senza acquisire lock. |
+| `POST /openings/{opening_id}/heartbeat` | Registrare contatto senza ripristinare aperture revocate. |
+| `POST /openings/{opening_id}/release` | Rilascio normale della propria apertura, non sblocco forzato. |
+
+Il primo login propone un canale server-to-server dal POS a Napay: identita
+del servizio POS piu sessione operatore opaca, revocabile. Token backend tenuti
+solo nella sessione server POS; cookie browser POS separato, HttpOnly/Secure,
+rigenerato al login. Password soltanto durante la verifica, mai persistita.
+Si tratta di una **proposta**, alternativa a login centralizzato/SSO da
+valutare con l'agente Napay, non di una scelta gia implementata.
+
+Il browser non chiama questa API direttamente, non riceve il token backend
+e non comunica con URL/host forniti dall'utente. Form login/apertura/logout del
+POS restano protetti da CSRF; niente sessioni cookie Napay riutilizzate dal
+client server-to-server. TLS con verifica CA/hostname, nessun redirect libero,
+timeout e limiti risposte. Routing DNS/rete Docker e CA interna ancora da
+concordare: non disattivare verifiche TLS per far funzionare un hostname.
+
+Acquisizione nuova occupata: `409 terminal_in_use`. Replay della stessa chiave
+idempotente e stesso payload: ritorno dell'apertura originale; chiave riusata
+con payload diverso: `409 idempotency_conflict`. Una nuova istanza/tab richiede
+nuova acquisizione e non puo assumere l'apertura solo perche usa lo stesso utente.
+Errori login generici, nessuna distinzione pubblica account inesistente,
+disabilitato o email ambigua. Errori e risposte `no-store`; nessun segreto nei log.
+
+Lo sblocco forzato appartiene al backoffice Napay, con autorizzazione manager
+e CSRF propri: non e esposto come parametro `force` dell'API operatore.
+Ogni sblocco cambia generazione/fencing e rende inutilizzabile l'apertura
+precedente. Il formato wire della funzione manager resta all'agente Napay.
+
+Prima dell'integrazione l'agente backend deve confermare o correggere:
+
+1. Login server-to-server o autenticazione centralizzata; identita del servizio,
+   rotazione, scadenza sessione e modalita di revoca.
+2. URL, identificativi pubblici, JSON, paginazione ed errori proposti.
+3. Relazione utente-negozio e lock unico persistente/atomico, con fencing.
+4. Chiusura normale/logout, recupero dopo refresh e gestione crash senza
+   sblocco automatico non autorizzato.
+5. Sblocco dal backoffice e test di concorrenza/revoca su database reale di test.
+
+Controllo locale: `node tests/api-contract.cjs` dalla directory `pos/v2`.
+Verifica JSON, struttura attesa, security requirement, nomi operazioni e
+riferimenti locali. **Non e un validatore completo OpenAPI**, non verifica
+implementazione backend, autenticazione, autorizzazioni o concorrenza.
+Non introduce librerie o endpoint e non richiede credenziali operative.
+
 ## Decisioni confermate
 
 | Tema | Regola |

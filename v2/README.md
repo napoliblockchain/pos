@@ -21,6 +21,10 @@ negozi, apertura esclusiva e sblocco admin/merchant; wallet unico per merchant.
 Il pairing tramite SIN/codici non e il flusso scelto.
 Vedere [contratto funzionale per l'agente Napay](docs/NAPAY-CONTRACT.md).
 Le decisioni documentate non rendono queste funzioni gia disponibili.
+Disponibile [bozza OpenAPI](docs/pos-api.openapi.json) per l'agente backend:
+7 operazioni proposte, non implementate e non ancora approvate. Login allineato
+alla decisione Napay email-only (`a4f4ffe3`). Controlli strutturali ripetibili:
+`node tests/api-contract.cjs`, senza test o chiamate al backend operativo.
 Non e presente una modalita live: `POS_MODE` diverso da `preview` blocca l'avvio.
 Non usare in produzione e non inserire credenziali reali del vecchio POS.
 
