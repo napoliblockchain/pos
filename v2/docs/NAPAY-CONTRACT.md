@@ -1,5 +1,9 @@
 # POS / Napay: decisioni e contratto funzionale
 
+Fonte normativa: [SIP-021](../../../tips/SIP-021-pos-login-operatori-apertura-esclusiva.md).
+Questo documento e allegato tecnico; non sostituisce SIP e approvazione della
+fase prima del codice. Requisiti confermati non implicano protocollo API approvato.
+
 - Data: 2026-11-11.
 - Stato: requisiti utente confermati; protocollo API da concordare con agente Napay.
 - Perimetro: login operatore, selezione POS e apertura esclusiva; primo collaudo
