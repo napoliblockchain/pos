@@ -1,11 +1,11 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Napay POS API - login available, remaining operations draft",
-    "version": "0.2.0",
-    "description": "POST /sessions implemented by Napay b79ae7ab and approved in SIP-021. Remaining operations are draft, not implemented. Server-to-server only; token stays on POS server. No payment endpoints."
+    "title": "Napay POS API - login/logout available, remaining operations draft",
+    "version": "0.3.0",
+    "description": "POST and DELETE /sessions implemented and approved in SIP-021. Five remaining operations are draft. Server-to-server only; token stays on POS server. No payment endpoints or openings yet."
   },
-  "x-contract-status": "partial-backend-login-implemented",
+  "x-contract-status": "partial-backend-sessions-implemented",
   "x-login-flow": "pos-form-server-to-server-approved",
   "servers": [
     {
@@ -122,10 +122,10 @@
       },
       "delete": {
         "operationId": "logoutOperator",
-        "summary": "Revoke this operator session and close only openings owned by this session, atomically. Never release another operator opening.",
+        "summary": "Idempotently revoke only the supplied token bound to the authenticated client; empty request body. No openings implemented yet.",
         "responses": {
           "204": {
-            "description": "Session revoked.",
+            "description": "Empty response for revoked, already revoked, expired, unknown or foreign-client token. Other client sessions never modified.",
             "headers": {
               "Cache-Control": {
                 "description": "Always no-store.",
@@ -136,14 +136,46 @@
               }
             }
           },
-          "401": {
+          "400": {
             "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error",
+            "description": "Missing/invalid client key: unauthenticated; missing/malformed bearer: invalid_token."
+          },
+          "405": {
+            "description": "Method not allowed; framework response without sensitive details. No stable error body guaranteed."
+          },
+          "429": {
+            "description": "Separate logout limit: 60 requests/minute per client.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 900
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "503": {
             "$ref": "#/components/responses/Error"
           }
         },
-        "x-implementation-status": "draft-not-implemented"
+        "x-implementation-status": "backend-implemented"
       }
     },
     "/terminals": {

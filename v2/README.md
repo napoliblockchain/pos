@@ -20,7 +20,7 @@ HTTP attivi. Il pulsante verifica solo l'importo; non crea fatture, QR,
 transazioni, saldo o ricevute. Importi EUR in centesimi interi, intervallo della
 sola anteprima 0,01-99.999,99: non definisce limiti di pagamento del backend.
 
-**Non implementati:** catalogo/apertura esclusiva terminale, revoca centrale dal logout, incassi
+**Non implementati:** catalogo/apertura esclusiva terminale, incassi
 BTC/TTS, polling stato, storico, ricevute e installazione/offline PWA.
 
 Decisioni concordate il 2026-11-11: login utente base, POS autorizzati per piu
@@ -29,8 +29,8 @@ Il pairing tramite SIN/codici non e il flusso scelto.
 Vedere [contratto funzionale per l'agente Napay](docs/NAPAY-CONTRACT.md).
 Le decisioni documentate non rendono queste funzioni gia disponibili.
 Disponibile [bozza OpenAPI](docs/pos-api.openapi.json) per l'agente backend:
-7 operazioni: login implementato e allineato al contratto definitivo SIP-021;
-altre 6 ancora proposte, non implementate. Controlli strutturali ripetibili:
+7 operazioni: login e logout implementati sul contratto definitivo SIP-021;
+altre 5 ancora proposte, non implementate. Controlli strutturali ripetibili:
 `node tests/api-contract.cjs`, senza test o chiamate al backend operativo.
 Non e presente una modalita live: `POS_MODE` diverso da `preview` blocca l'avvio.
 Non usare in produzione; per il collaudo usare solo account della sandbox locale.
@@ -38,8 +38,10 @@ Non usare in produzione; per il collaudo usare solo account della sandbox locale
 Accesso da **https://pos.localhost/site/login**. Dopo il login compare soltanto
 il nome operatore, non un terminale aperto. Token Napay custodito nella sessione
 PHP sul server, ID rigenerato al login, scadenza assoluta ricevuta dal backend
-(default 12 ore). Logout elimina la sessione locale ma **non revoca ancora il
-token Napay**: `DELETE /sessions` non disponibile. Le future operazioni protette
+(default 12 ore). Logout chiama `DELETE /sessions` con chiave client e bearer
+solo server-to-server: dopo 204 elimina la sessione locale. In caso di errore
+mantiene la sessione e propone retry, senza dichiarare una revoca non confermata.
+La revoca e idempotente e limitata al token di quel client. Le future operazioni protette
 dovranno riverificare grant/revoche sul backend; la pagina account non li certifica.
 
 Il codice Yii1 resta intatto, ma non viene montato o caricato dal container v2.
@@ -148,6 +150,7 @@ Non sono state aggiornate immagini PHP o librerie delle altre applicazioni.
 docker exec pos-v2-local-web-1 php tests/amount.php
 docker exec pos-v2-local-web-1 php tests/config.php
 docker exec pos-v2-local-web-1 php tests/login-client.php
+docker exec pos-v2-local-web-1 php tests/logout-client.php
 docker exec --user 33 pos-v2-local-web-1 php tests/transport.php
 node tests/api-contract.cjs
 node tests/local-state.test.cjs
@@ -165,8 +168,13 @@ CA in `$NAPAY_LOCAL_STATE/caddy-root.crt`;
 2 trasporto TLS reale, 7 percorsi privati e 24 HTTPS/browser (390/1280px), inclusi CSRF, array/strutture
 malformate, XSS, percorsi privati e assenza operazioni finanziarie. Validazione
 strict e audit Composer eseguiti; sintassi PHP/JS/shell e Compose controllati.
-Ulteriori 21 test browser eseguono login reale POS/Napay sulla fixture locale,
-rigenerazione sessione, logout locale e assenza segreti nel browser; creano una
-sessione backend soggetta alla sua scadenza, senza denaro reale.
+Ulteriori 22 test browser eseguono login/logout reale POS/Napay sulla fixture locale,
+rigenerazione sessione, CSRF logout e assenza segreti nel browser. Altri 18
+controlli simulati verificano il client/controller logout, inclusa custodia
+locale mantenuta dopo errore e retry confermato. Nessun denaro reale.
+Backend: suite `napay/tests/application/pos-sessions.php` include `pos-logout.php`:
+62 controlli login e 32 logout HTTP/DB isolati (revoca, replay, client diversi,
+concorrenza, cambio password, scadenza, account disabilitato, DB indisponibile,
+rate limit e assenza segreti). Nessuna modifica al DB operativo per questi test.
 I 37 test simulati e i controlli strutturali OpenAPI non provano autorizzazioni
 backend o lock. Non e configurato PHPStan/PHPCS. Nessun test di incasso o apertura esclusiva dichiarato.

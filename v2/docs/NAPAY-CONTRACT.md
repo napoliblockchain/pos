@@ -8,13 +8,13 @@ fase prima del codice. Requisiti confermati non implicano protocollo API approva
 - Stato: login POS/server-to-server implementato sul contratto definitivo SIP-021; altre API da concordare.
 - Perimetro: login operatore, selezione POS e apertura esclusiva; primo collaudo
   TTS su chain locale, senza denaro reale.
-- Solo `POST /sessions` disponibile. Il POS resta senza incassi, catalogo o aperture.
+- `POST /sessions` e `DELETE /sessions` disponibili. POS senza incassi, catalogo o aperture.
 
 ## Bozza tecnica per l'agente Napay
 
 Specifica proposta: [pos-api.openapi.json](pos-api.openapi.json), formato
 [OpenAPI 3.1](https://spec.openapis.org/oas/v3.1.0.html).
-Stato `partial-backend-login-implemented`: login allineato al backend; le altre sei
+Stato `partial-backend-sessions-implemented`: login/logout allineati al backend; le altre cinque
 operazioni restano bozze, non rotte operative o accordi API gia raggiunti.
 
 Backend del 2026-11-11: Napay commit `b79ae7ab` implementa il login API solo email.
@@ -22,12 +22,12 @@ Il vecchio login tramite username non va
 riproposto. La password deve essere verificata dal backend con le regole
 centralizzate esistenti, senza copiarne hash o replicare la logica nel POS.
 
-Base `/api/pos/v1` (solo prima riga implementata):
+Base `/api/pos/v1` (solo prime due righe implementate):
 
 | Metodo/percorso | Scopo |
 | --- | --- |
 | `POST /sessions` | Autenticare operatore con email/password. |
-| `DELETE /sessions` | Revocare sessione e rilasciare soltanto le sue aperture. |
+| `DELETE /sessions` | Revocare solo il token del client chiamante; nessuna apertura esiste ancora. |
 | `GET /terminals` | Catalogo POS filtrato per assegnazioni esplicite, paginato. |
 | `POST /terminals/{terminal_id}/openings` | Acquisire apertura esclusiva con chiave idempotenza. |
 | `GET /openings/{opening_id}` | Verificare titolarita e validita, senza acquisire lock. |
@@ -45,7 +45,7 @@ Login: header `X-POS-Client-Key` (43 caratteri base64url), facoltativo
 caratteri base64url, scadenza assoluta default 12 ore, nessun refresh.
 Errori JSON: 400 `validation_failed`, 401 `unauthenticated` o `invalid_credentials`,
 429 `rate_limited` con `Retry-After` e 503 `backend_unavailable`. Altri metodi:
-405, senza assumere lo stesso formato JSON del framework.
+405 sui metodi diversi da POST/DELETE, senza assumere lo stesso formato JSON del framework.
 
 Il browser non chiama questa API direttamente, non riceve il token backend
 e non comunica con URL/host forniti dall'utente. Form login/apertura/logout del
@@ -57,8 +57,12 @@ verificato. Nessun redirect, proxy o accesso HTTP diretto al web Napay.
 
 Il client POS verifica schema e scadenza prima di custodire il token nella
 sessione server, rigenerando l'ID browser. Non mostra credenziali o errori
-upstream. Logout attuale elimina solo la sessione locale: `DELETE /sessions`
-non disponibile, quindi nessuna revoca centrale dichiarata. La pagina account
+upstream. Logout `DELETE /sessions`: chiave client e bearer, corpo vuoto;
+204 vuoto per revoca/replay/token ignoto o di altro client, senza modificare
+sessioni altrui. Bearer malformato: 401 `invalid_token`; corpo presente: 400;
+limite separato 60/min per client: 429; errore backend: 503. POS elimina la
+sessione locale solo dopo 204 verificato; errore mantiene custodia e consente retry.
+La pagina account
 non certifica grant o stato remoto; ogni futura API protetta dovra riverificarli.
 Percorsi privati e test reali descritti nel [README](../README.md).
 
@@ -76,8 +80,8 @@ precedente. Il formato wire della funzione manager resta all'agente Napay.
 
 Per le successive API l'agente backend deve confermare o correggere:
 
-1. Revoca centrale dal logout e uso della sessione nelle successive API
-   (identita del servizio e formato/scadenza del login gia definiti nel SIP).
+1. Uso della sessione nelle successive API e rilascio futuro delle aperture
+   durante logout (revoca del token gia implementata secondo SIP).
 2. URL, identificativi pubblici, JSON, paginazione ed errori proposti.
 3. Relazione utente-negozio e lock unico persistente/atomico, con fencing.
 4. Chiusura normale/logout, recupero dopo refresh e gestione crash senza
@@ -121,7 +125,7 @@ Nessuna concessione implicita a tutti i negozi di un merchant.
 Il flusso scelto tra `pos.localhost` e `napay.local` e server-to-server, con
 credenziali verificate da Napay e token solo sul server POS. Autenticazione del
 servizio e formato della sessione login definiti nel SIP; scope per risorsa e
-revoca/logout da completare col backend. Nessun redirect al login centrale previsto.
+rilascio aperture da completare col backend; logout token implementato. Nessun redirect al login centrale previsto.
 Non condividere automaticamente cookie tra host, non salvare password/token
 in URL o localStorage, non esporre token backend al browser senza un design
 esplicito. Nessuna API pubblica o CORS permissiva per aggirare il problema.
