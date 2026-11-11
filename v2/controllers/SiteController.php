@@ -63,6 +63,11 @@ class SiteController extends Controller
 
     public function actionLogout()
     {
+        $operator = Yii::$app->operatorSession->current();
+        if ($operator !== null && !Yii::$app->napayLogin->logout($operator['token'])['ok']) {
+            Yii::$app->response->statusCode = 503;
+            return $this->render('account', ['displayName' => $operator['name'], 'logoutFailed' => true]);
+        }
         Yii::$app->operatorSession->forget();
         return $this->redirect(['login']);
     }

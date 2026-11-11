@@ -44,7 +44,7 @@ function check(value,label){if(!value)throw new Error(label);++checks;console.lo
   const html=await page.content();
   check(!html.includes(password)&&!html.includes(key)&&!/napos_[A-Za-z0-9_-]{43}/.test(html),'No password, client key or backend token in HTML');
   check(html.includes('Nessun POS aperto'),'Login does not claim terminal grants or opening');
-  check(html.includes('non revoca ancora'),'Local-only logout limitation is explicit');
+  check(html.includes('Il logout revoca la sessione Napay'),'Central logout behavior is explicit');
   const cookies=await context.cookies();const session=cookies.find(item=>item.name==='POSSESSID');
   check(session&&session.value!==oldId.value,'Browser session ID rotated after login');
   check(session.secure&&session.httpOnly&&session.sameSite==='Strict','Operator cookie secure and host isolated');
@@ -52,9 +52,11 @@ function check(value,label){if(!value)throw new Error(label);++checks;console.lo
   const oldContext=await browser.newContext();await oldContext.addCookies(before);const oldPage=await oldContext.newPage();
   await oldPage.goto(origin+'/site/account');check(new URL(oldPage.url()).pathname==='/site/login','Pre-login session cannot access authenticated account');await oldContext.close();
   await page.goto(origin+'/site/logout');check((await page.goto(origin+'/site/account')).status()===200&&new URL(page.url()).pathname==='/site/account','GET logout does not change authenticated state');
-  stage='local logout';
+  stage='central logout';
+  const missingLogoutCsrf=await page.evaluate(async()=>{const r=await fetch('/site/logout',{method:'POST'});return r.status;});
+  check(missingLogoutCsrf===400,'Logout without CSRF rejected');
   await Promise.all([page.waitForNavigation(),page.locator('#operator-logout button[type=submit]').click()]);
-  check(new URL(page.url()).pathname==='/site/login','CSRF-protected local logout completes');
+  check(new URL(page.url()).pathname==='/site/login','CSRF-protected central logout completes');
   await page.goto(origin+'/site/account');check(new URL(page.url()).pathname==='/site/login','Local account inaccessible after logout');
   check(errors.length===0,'No uncaught login JavaScript errors');
   await context.close();console.log('PASS '+checks+' real POS/Napay login browser checks');

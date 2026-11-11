@@ -49,12 +49,34 @@ class NapayLoginClient extends \yii\base\Component
 
     protected function send(string $body, string $key, ?string $ip): array
     {
+        return $this->request('POST', $body, $key, $ip);
+    }
+
+    public function logout(string $token): array
+    {
+        try {
+            if ($this->baseUrl !== 'https://napay.local/api/pos/v1'
+                || !preg_match('/^napos_[A-Za-z0-9_-]{43}$/D', $token)
+                || !is_readable($this->caFile) || !is_readable($this->clientKeyFile)) return $this->unavailable();
+            $key = @file_get_contents($this->clientKeyFile, false, null, 0, 256);
+            if (!is_string($key) || !preg_match('/^[A-Za-z0-9_-]{43}$/D', trim($key))) return $this->unavailable();
+            $response = $this->request('DELETE', '', trim($key), null, $token);
+            if (($response['status'] ?? null) === 204 && ($response['body'] ?? null) === '' && empty($response['setCookie'])) return ['ok' => true];
+            return $this->unavailable();
+        } catch (\Throwable $error) {
+            return $this->unavailable();
+        }
+    }
+
+    protected function request(string $method, string $body, string $key, ?string $ip, ?string $token = null): array
+    {
         $curl = curl_init($this->baseUrl . '/sessions');
         $raw = ''; $retry = null; $setCookie = false;
         $headers = ['Content-Type: application/json', 'Accept: application/json', 'Expect:', 'X-POS-Client-Key: ' . $key];
         if ($ip !== null) $headers[] = 'X-POS-Operator-IP: ' . $ip;
+        if ($token !== null) $headers[] = 'Authorization: Bearer ' . $token;
         try {
-            curl_setopt_array($curl, [CURLOPT_POST => true, CURLOPT_POSTFIELDS => $body, CURLOPT_HTTPHEADER => $headers,
+            curl_setopt_array($curl, [CURLOPT_CUSTOMREQUEST => $method, CURLOPT_POSTFIELDS => $body, CURLOPT_HTTPHEADER => $headers,
                 CURLOPT_TIMEOUT => 5, CURLOPT_CONNECTTIMEOUT => 5, CURLOPT_PROXY => '', CURLOPT_FOLLOWLOCATION => false,
                 CURLOPT_PROTOCOLS => CURLPROTO_HTTPS, CURLOPT_SSL_VERIFYPEER => true, CURLOPT_SSL_VERIFYHOST => 2,
                 CURLOPT_CAINFO => $this->caFile,
