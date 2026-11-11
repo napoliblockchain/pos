@@ -1,11 +1,11 @@
 const fs = require('node:fs');
-const os = require('node:os');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const cp = require('node:child_process');
 const { chromium } = require(process.env.PLAYWRIGHT_PACKAGE || 'playwright');
 const origin = 'https://pos.localhost';
-const ca = process.env.POS_CA_FILE || path.join(os.homedir(), '.local/share/napay/pos-v2-local/caddy-root.crt');
+const { localState } = require('./local-state.cjs');
+const ca = process.env.POS_CA_FILE || path.join(localState('NAPAY_LOCAL_STATE'), 'caddy-root.crt');
 let checks = 0;
 function check(value, label) { if (!value) throw new Error(label); ++checks; console.log('PASS: ' + label); }
 (async () => {

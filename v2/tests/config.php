@@ -11,7 +11,11 @@ foreach ([!isset($config['components']['db']), !isset($config['modules']),
     $config['components']['request']['csrfCookie']['secure'],
     $config['components']['request']['csrfCookie']['sameSite'] === 'Strict',
     $config['components']['session']['name'] === 'POSSESSID',
-    $config['components']['log']['targets'][0]['logVars'] === []] as $condition) {
+    $config['components']['log']['targets'][0]['logVars'] === [],
+    $config['components']['session']['savePath'] === '@runtime/sessions',
+    $config['components']['session']['useStrictMode'] === true,
+    array_keys($config['components']['request']['trustedHosts']) === ['10.251.0.0/24'],
+    $config['components']['napayLogin']['baseUrl'] === 'https://napay.local/api/pos/v1'] as $condition) {
     if (!$condition) throw new RuntimeException('POS isolation configuration failed.');
     ++$checks;
 }
