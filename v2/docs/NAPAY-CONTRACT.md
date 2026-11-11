@@ -5,24 +5,24 @@ Questo documento e allegato tecnico; non sostituisce SIP e approvazione della
 fase prima del codice. Requisiti confermati non implicano protocollo API approvato.
 
 - Data: 2026-11-11.
-- Stato: requisiti e login POS/server-to-server confermati; dettagli API da concordare con agente Napay.
+- Stato: login POS/server-to-server implementato sul contratto definitivo SIP-021; altre API da concordare.
 - Perimetro: login operatore, selezione POS e apertura esclusiva; primo collaudo
   TTS su chain locale, senza denaro reale.
-- Nessun endpoint descritto qui e gia implementato. Il POS resta in anteprima.
+- Solo `POST /sessions` disponibile. Il POS resta senza incassi, catalogo o aperture.
 
 ## Bozza tecnica per l'agente Napay
 
 Specifica proposta: [pos-api.openapi.json](pos-api.openapi.json), formato
 [OpenAPI 3.1](https://spec.openapis.org/oas/v3.1.0.html).
-Stato `draft-awaiting-backend-review`: **non e un accordo API gia raggiunto**.
-Non iniziare un client operativo dando per esistenti queste rotte.
+Stato `partial-backend-login-implemented`: login allineato al backend; le altre sei
+operazioni restano bozze, non rotte operative o accordi API gia raggiunti.
 
-Rilevazione backend del 2026-11-11: Napay commit `a4f4ffe3` usa login solo email;
-nessun controller API POS presente. Il vecchio login tramite username non va
+Backend del 2026-11-11: Napay commit `b79ae7ab` implementa il login API solo email.
+Il vecchio login tramite username non va
 riproposto. La password deve essere verificata dal backend con le regole
 centralizzate esistenti, senza copiarne hash o replicare la logica nel POS.
 
-Base proposta `/api/pos/v1`:
+Base `/api/pos/v1` (solo prima riga implementata):
 
 | Metodo/percorso | Scopo |
 | --- | --- |
@@ -38,15 +38,29 @@ Flusso approvato dall'utente: login nel POS e verifica email/password via API
 Napay server-to-server, non redirect/SSO. Token backend tenuti solo nella
 sessione server POS; cookie browser POS separato, HttpOnly/Secure e rigenerato
 al login. Password soltanto durante la verifica, mai persistita o registrata.
-L'identita del servizio, il formato/scadenza del token e il wire protocol della
-bozza restano proposte da validare con l'agente Napay. Nessun login implementato.
+Login: header `X-POS-Client-Key` (43 caratteri base64url), facoltativo
+`X-POS-Operator-IP` validato e derivato dalla richiesta tramite proxy fidato.
+201 restituisce solo `access_token`, `token_type=Bearer`, `expires_at` UTC e
+`operator.display_name`; nessun `operator.id`. Token `napos_` seguito da 43
+caratteri base64url, scadenza assoluta default 12 ore, nessun refresh.
+Errori JSON: 400 `validation_failed`, 401 `unauthenticated` o `invalid_credentials`,
+429 `rate_limited` con `Retry-After` e 503 `backend_unavailable`. Altri metodi:
+405, senza assumere lo stesso formato JSON del framework.
 
 Il browser non chiama questa API direttamente, non riceve il token backend
 e non comunica con URL/host forniti dall'utente. Form login/apertura/logout del
 POS restano protetti da CSRF; niente sessioni cookie Napay riutilizzate dal
 client server-to-server. TLS con verifica CA/hostname, nessun redirect libero,
-timeout e limiti risposte. Routing DNS/rete Docker e CA interna ancora da
-concordare: non disattivare verifiche TLS per far funzionare un hostname.
+timeout 5 secondi e risposta massima 16 KiB. Rete dedicata `pos_local_browser`,
+gateway con alias `napay.local`, CA interna montata come secret e TLS sempre
+verificato. Nessun redirect, proxy o accesso HTTP diretto al web Napay.
+
+Il client POS verifica schema e scadenza prima di custodire il token nella
+sessione server, rigenerando l'ID browser. Non mostra credenziali o errori
+upstream. Logout attuale elimina solo la sessione locale: `DELETE /sessions`
+non disponibile, quindi nessuna revoca centrale dichiarata. La pagina account
+non certifica grant o stato remoto; ogni futura API protetta dovra riverificarli.
+Percorsi privati e test reali descritti nel [README](../README.md).
 
 Acquisizione nuova occupata: `409 terminal_in_use`. Replay della stessa chiave
 idempotente e stesso payload: ritorno dell'apertura originale; chiave riusata
@@ -60,10 +74,10 @@ e CSRF propri: non e esposto come parametro `force` dell'API operatore.
 Ogni sblocco cambia generazione/fencing e rende inutilizzabile l'apertura
 precedente. Il formato wire della funzione manager resta all'agente Napay.
 
-Prima dell'integrazione l'agente backend deve confermare o correggere:
+Per le successive API l'agente backend deve confermare o correggere:
 
-1. Nel flusso server-to-server gia scelto: identita del servizio, rotazione,
-   formato/scadenza sessione e modalita di revoca.
+1. Revoca centrale dal logout e uso della sessione nelle successive API
+   (identita del servizio e formato/scadenza del login gia definiti nel SIP).
 2. URL, identificativi pubblici, JSON, paginazione ed errori proposti.
 3. Relazione utente-negozio e lock unico persistente/atomico, con fencing.
 4. Chiusura normale/logout, recupero dopo refresh e gestione crash senza
@@ -106,8 +120,8 @@ Nessuna concessione implicita a tutti i negozi di un merchant.
 
 Il flusso scelto tra `pos.localhost` e `napay.local` e server-to-server, con
 credenziali verificate da Napay e token solo sul server POS. Autenticazione del
-servizio e credenziali/sessioni scoped e revocabili vanno definite col backend
-prima del codice; nessun redirect al login centrale e previsto.
+servizio e formato della sessione login definiti nel SIP; scope per risorsa e
+revoca/logout da completare col backend. Nessun redirect al login centrale previsto.
 Non condividere automaticamente cookie tra host, non salvare password/token
 in URL o localStorage, non esporre token backend al browser senza un design
 esplicito. Nessuna API pubblica o CORS permissiva per aggirare il problema.

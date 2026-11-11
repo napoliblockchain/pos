@@ -5,7 +5,11 @@ const path = require('node:path');
 const file = path.resolve(__dirname, '../docs/pos-api.openapi.json');
 const spec = JSON.parse(fs.readFileSync(file, 'utf8'));
 assert.equal(spec.openapi, '3.1.0');
-assert.equal(spec['x-contract-status'], 'draft-awaiting-backend-review');
+assert.equal(spec['x-contract-status'], 'partial-backend-login-implemented');
+assert.equal(spec.paths['/sessions'].post['x-implementation-status'], 'backend-implemented');
+assert.ok(spec.paths['/sessions'].post.responses['405']);
+assert.ok(spec.paths['/sessions'].post.parameters.some(parameter => parameter.name === 'X-POS-Operator-IP'));
+assert.deepEqual(Object.keys(spec.components.schemas.Operator.properties), ['display_name']);
 assert.deepEqual(spec.security, [{ PosClient: [], OperatorSession: [] }]);
 assert.deepEqual(spec.paths['/sessions'].post.security, [{ PosClient: [] }]);
 const login = spec.components.schemas.Login;
@@ -37,6 +41,7 @@ for (const [route, item] of Object.entries(spec.paths)) {
     if (!methods.includes(method)) continue;
     assert.ok(operation.operationId && !ids.has(operation.operationId));
     ids.add(operation.operationId); ++operations;
+    if (operation.operationId !== 'createOperatorSession') assert.equal(operation['x-implementation-status'], 'draft-not-implemented');
     assert.ok(operation.responses['401'] && operation.responses['503']);
     assert.notDeepEqual(operation.security, [], 'No anonymous operations');
     for (const match of route.matchAll(/\{([^}]+)\}/g)) {
@@ -47,4 +52,4 @@ for (const [route, item] of Object.entries(spec.paths)) {
 assert.equal(operations, 7);
 assert.ok(spec.paths['/terminals/{terminal_id}/openings'].post.responses['409']);
 assert.ok(spec.paths['/openings/{opening_id}/heartbeat'].post.responses['409']);
-console.log(`PASS POS draft structure: ${operations} operations, ${references} local references resolved`);
+console.log(`PASS POS API structure: one implemented login, ${operations - 1} draft operations, ${references} local references resolved`);

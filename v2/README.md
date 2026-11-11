@@ -11,7 +11,8 @@ Prima dell'implementazione: [SIP-021](../../tips/SIP-021-pos-login-operatori-ape
 Le nuove fasi richiedono SIP documentato e approvato; nessuna implementazione
 deriva automaticamente dalla bozza OpenAPI.
 Flusso login approvato: email/password nel POS, verifica API Napay e token
-soltanto sul server POS. Dettagli API ancora da concordare; login non attivo.
+soltanto sul server POS. Login reale attivo tramite `POST /api/pos/v1/sessions`;
+nessuna copia del database utenti o degli hash password.
 
 Questa e la **base navigabile di migrazione**, non un POS pronto a incassare.
 Tastierino, validazione importi lato server, layout mobile/desktop e protezioni
@@ -19,7 +20,7 @@ HTTP attivi. Il pulsante verifica solo l'importo; non crea fatture, QR,
 transazioni, saldo o ricevute. Importi EUR in centesimi interi, intervallo della
 sola anteprima 0,01-99.999,99: non definisce limiti di pagamento del backend.
 
-**Non implementati:** autenticazione/pairing terminale, API Napay, incassi
+**Non implementati:** catalogo/apertura esclusiva terminale, revoca centrale dal logout, incassi
 BTC/TTS, polling stato, storico, ricevute e installazione/offline PWA.
 
 Decisioni concordate il 2026-11-11: login utente base, POS autorizzati per piu
@@ -28,11 +29,18 @@ Il pairing tramite SIN/codici non e il flusso scelto.
 Vedere [contratto funzionale per l'agente Napay](docs/NAPAY-CONTRACT.md).
 Le decisioni documentate non rendono queste funzioni gia disponibili.
 Disponibile [bozza OpenAPI](docs/pos-api.openapi.json) per l'agente backend:
-7 operazioni proposte, non implementate e non ancora approvate. Login allineato
-alla decisione Napay email-only (`a4f4ffe3`). Controlli strutturali ripetibili:
+7 operazioni: login implementato e allineato al contratto definitivo SIP-021;
+altre 6 ancora proposte, non implementate. Controlli strutturali ripetibili:
 `node tests/api-contract.cjs`, senza test o chiamate al backend operativo.
 Non e presente una modalita live: `POS_MODE` diverso da `preview` blocca l'avvio.
-Non usare in produzione e non inserire credenziali reali del vecchio POS.
+Non usare in produzione; per il collaudo usare solo account della sandbox locale.
+
+Accesso da **https://pos.localhost/site/login**. Dopo il login compare soltanto
+il nome operatore, non un terminale aperto. Token Napay custodito nella sessione
+PHP sul server, ID rigenerato al login, scadenza assoluta ricevuta dal backend
+(default 12 ore). Logout elimina la sessione locale ma **non revoca ancora il
+token Napay**: `DELETE /sessions` non disponibile. Le future operazioni protette
+dovranno riverificare grant/revoche sul backend; la pagina account non li certifica.
 
 Il codice Yii1 resta intatto, ma non viene montato o caricato dal container v2.
 Nessun runtime da `yii-1.1.22`, `packages` o vendor di Napay/poawallet.
@@ -46,10 +54,9 @@ POS risultava ancora Yii1 (ultimo commit applicativo `b82071c`, 2021), senza
 implementazione v2. TIP-020 assegna migrazione associazione/legacy al backoffice.
 Questa fase non crea tabelle POS nel database gestito dall'altro agente.
 
-Rilievo del 2026-11-11: `.env` dell'orchestratore ha permessi 0664, quindi e
-leggibile dagli altri utenti locali. Se contiene credenziali va ristretto a
-0600 in coordinamento con l'altro agente; non e stato modificato da questa
-attivita. Il file env POS e gia 0600 e non ne copia i valori.
+Il file `.env` privato dell'orchestratore e stato ristretto a 0600 durante
+lo spostamento dei percorsi. Il POS ne legge solo i nomi di percorso sotto
+indicati, senza eseguirne il contenuto o copiarne le credenziali.
 
 Il vecchio `POSIdentity::authenticatePOS()` autentica tramite SIN e contiene
 un controllo quote disabilitato. Non viene riutilizzato automaticamente.
@@ -61,7 +68,9 @@ Nessun protocollo finanziario e stato inventato in questa fase.
 ## Avvio e arresto
 
 Prerequisiti: Docker Compose, OpenSSL, flock e gateway `napay-gateway` gia avviato
-con rete interna `napay_local_browser` (launcher della piattaforma esistente).
+con rete interna `pos_local_browser` (subnet 10.251.0.0/24, creata dal launcher
+della piattaforma). Avviare prima lo stack condiviso con
+`bash /var/www/blockchain-napoli/napay-project/start-localhost.sh`.
 
 ```sh
 cd pos/v2
@@ -70,9 +79,30 @@ bash docker/local.sh status
 bash docker/local.sh stop
 ```
 
-Il launcher avvia/ferma solo POS. Configurazione privata in
-`$HOME/.local/share/napay/pos-v2-local/local.env`, directory 0700/file 0600;
-chiave cookie casuale persistita, mai nel repository o nella build.
+Il launcher avvia/ferma solo POS. Percorsi letti dalle variabili di processo,
+oppure dalle sole righe corrispondenti del `.env` privato dell'orchestratore:
+
+```dotenv
+POS_LOCAL_STATE=/var/www/documents/progetti/napoliblockchain/pos/ambiente-locale
+NAPAY_LOCAL_STATE=/var/www/documents/progetti/napoliblockchain/napay/ambiente-locale
+POS_LOCAL_DATA=/var/www/blockchain-napoli/pos-local-data
+```
+
+Nessun percorso personale e fissato nel codice; nessun fallback alla vecchia
+cartella HOME. Percorsi assoluti, fuori dai repository applicativi, proprietario
+corrente e directory senza permessi gruppo/altri; symlink diretti rifiutati.
+`$POS_LOCAL_STATE` contiene `local.env`, `control.lock` e la copia storica pubblica
+`caddy-root.crt`: directory 0700/file 0600, `.gitignore` locale esclude tutti i
+contenuti tranne se stesso (anche `documents` e un repository). La chiave cookie
+preesistente e stata conservata, non rigenerata. Un nuovo avvio crea la chiave
+solo se `local.env` non esiste.
+
+Sorgenti secret: `NAPAY_CLIENT_KEY_SOURCE=$NAPAY_LOCAL_STATE/pos-client-key` e
+`NAPAY_CA_SOURCE=$NAPAY_LOCAL_STATE/caddy-root.crt`, sovrascrivibili tramite
+variabili di processo. Montate read-only, copiate in tmpfs dal solo entrypoint
+e leggibili dal worker UID 33 con modo 0400. Nessuna chiave nella build o nei log.
+I test browser leggono la CA dallo stesso `NAPAY_LOCAL_STATE`, non dalla copia
+storica POS. `login-browser.cjs` usa li anche `browser-password` e `pos-client-key`.
 Il launcher non ricarica o riavvia automaticamente il gateway condiviso.
 
 Nuova rotta: `napay-project/docker/gateway/conf.d/pos.caddy`.
@@ -84,16 +114,23 @@ da Caddy 2.11. Non modificare la configurazione globale per aggirare il limite.
 
 Questo POS non e ancora incluso in `start-localhost.sh`/`stop-localhost.sh`:
 usare il proprio launcher. Nessun volume DB, migrazione o cancellazione dati.
-`runtime` persiste su volume POS separato; stop non elimina volumi.
+`runtime` persiste tramite bind mount in `$POS_LOCAL_DATA/runtime`, fuori dai
+repository; directory/sessioni private del worker UID 33. Il precedente volume
+`pos-v2-local_runtime` e stato copiato a POS fermo e conservato come salvaguardia.
+Stop, build e ricreazione del container non eliminano i dati esterni.
 
 ## Sicurezza e dipendenze
 
 DocumentRoot solo `v2/web`; rootfs read-only, nessuna porta pubblicata dal web,
-nessuna rete Internet per il backend e nessun DB/API/wallet collegato.
+nessuna rete Internet per il backend e nessun DB/wallet collegato. Solo rete POS:
+API Napay via gateway `napay.local`, TLS verificato con CA e hostname, timeout
+5 secondi, risposta massima 16 KiB, redirect e proxy disabilitati. Il POS non e
+sulla rete web Napay e non raggiunge direttamente il backend HTTP.
 Cookie CSRF host-only, nome isolato, Secure/HttpOnly/SameSite Strict; POST con
 CSRF. CSP restrittiva, no cache, no referer, niente frame. Dati variabili
 codificati in HTML; errori pubblici generici; log senza query o dump richieste.
-Anteprima locale senza login: non rappresenta autenticazione del terminale.
+Anteprima importi resta anonima; login operatore separato non rappresenta
+autorizzazione/apertura del terminale. Nessun token backend in cookie, URL o HTML.
 
 Composer indipendente con lock versionato, niente plugin o script automatici.
 La build usa `composer install` dal lock, non `update`. Nessuna dipendenza dev,
@@ -110,16 +147,26 @@ Non sono state aggiornate immagini PHP o librerie delle altre applicazioni.
 ```sh
 docker exec pos-v2-local-web-1 php tests/amount.php
 docker exec pos-v2-local-web-1 php tests/config.php
+docker exec pos-v2-local-web-1 php tests/login-client.php
+docker exec --user 33 pos-v2-local-web-1 php tests/transport.php
+node tests/api-contract.cjs
+node tests/local-state.test.cjs
 PLAYWRIGHT_PACKAGE=/percorso/playwright/package /percorso/node tests/browser.cjs
+PLAYWRIGHT_PACKAGE=/percorso/playwright/package /percorso/node tests/login-browser.cjs
 ```
 
 Browser: Chrome (`CHROME_PATH` opzionale); curl verifica CA completa, poi
 automazione limita eccezione di fiducia alla chiave pubblica del certificato
 POS (SPKI pin), senza bypass TLS globale. Richieste esterne bloccate.
-CA esportata in `~/.local/share/napay/pos-v2-local/caddy-root.crt`;
+CA in `$NAPAY_LOCAL_STATE/caddy-root.crt`;
 `POS_CA_FILE` permette percorso diverso. CA pubblica, non chiave privata.
 
-18 test importi, 9 configurazione e 24 HTTPS/browser (390/1280px), inclusi CSRF, array/strutture
+18 test importi, 13 configurazione, 37 client/sessioni con trasporto simulato,
+2 trasporto TLS reale, 7 percorsi privati e 24 HTTPS/browser (390/1280px), inclusi CSRF, array/strutture
 malformate, XSS, percorsi privati e assenza operazioni finanziarie. Validazione
 strict e audit Composer eseguiti; sintassi PHP/JS/shell e Compose controllati.
-Non e configurato PHPStan/PHPCS. Nessun test di incasso o pairing dichiarato.
+Ulteriori 21 test browser eseguono login reale POS/Napay sulla fixture locale,
+rigenerazione sessione, logout locale e assenza segreti nel browser; creano una
+sessione backend soggetta alla sua scadenza, senza denaro reale.
+I 37 test simulati e i controlli strutturali OpenAPI non provano autorizzazioni
+backend o lock. Non e configurato PHPStan/PHPCS. Nessun test di incasso o apertura esclusiva dichiarato.

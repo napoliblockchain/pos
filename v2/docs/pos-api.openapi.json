@@ -1,16 +1,16 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Napay POS operator API - DRAFT, not implemented",
-    "version": "0.1.0-draft",
-    "description": "User-approved flow: POS email/password form with server-to-server Napay verification, token only in POS server session. Wire protocol and service authentication remain proposals requiring backend review. No payment endpoints, direct browser API access, SIN or wallet keys. Manager force-unlock remains in Napay backoffice with its own authorization and CSRF."
+    "title": "Napay POS API - login available, remaining operations draft",
+    "version": "0.2.0",
+    "description": "POST /sessions implemented by Napay b79ae7ab and approved in SIP-021. Remaining operations are draft, not implemented. Server-to-server only; token stays on POS server. No payment endpoints."
   },
-  "x-contract-status": "draft-awaiting-backend-review",
+  "x-contract-status": "partial-backend-login-implemented",
   "x-login-flow": "pos-form-server-to-server-approved",
   "servers": [
     {
       "url": "https://napay.local/api/pos/v1",
-      "description": "Proposed logical origin, not an available API. Container DNS/CA routing requires agreement."
+      "description": "Approved backend origin through gateway on pos_local_browser, verified Caddy CA and hostname."
     }
   ],
   "security": [
@@ -23,7 +23,7 @@
     "/sessions": {
       "post": {
         "operationId": "createOperatorSession",
-        "summary": "Email login, no SIN. Reject disabled accounts and duplicate/ambiguous email with generic invalid credentials.",
+        "summary": "Email/password verification by Napay. Login alone grants no store or terminal access.",
         "security": [
           {
             "PosClient": []
@@ -37,7 +37,8 @@
                 "$ref": "#/components/schemas/Login"
               }
             }
-          }
+          },
+          "description": "Exactly email and password strings, JSON body at most 4096 bytes."
         },
         "responses": {
           "201": {
@@ -65,13 +66,59 @@
           "401": {
             "$ref": "#/components/responses/Error"
           },
+          "405": {
+            "description": "Method not allowed; framework response without sensitive details. No stable error body guaranteed."
+          },
           "429": {
-            "$ref": "#/components/responses/Error"
+            "description": "Rate limited.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 900
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "503": {
             "$ref": "#/components/responses/Error"
           }
-        }
+        },
+        "x-implementation-status": "backend-implemented",
+        "parameters": [
+          {
+            "name": "X-POS-Operator-IP",
+            "in": "header",
+            "required": false,
+            "description": "Validated browser IP supplied by authenticated POS server, not copied from browser headers.",
+            "schema": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "format": "ipv4"
+                },
+                {
+                  "type": "string",
+                  "format": "ipv6"
+                }
+              ]
+            }
+          }
+        ]
       },
       "delete": {
         "operationId": "logoutOperator",
@@ -95,7 +142,8 @@
           "503": {
             "$ref": "#/components/responses/Error"
           }
-        }
+        },
+        "x-implementation-status": "draft-not-implemented"
       }
     },
     "/terminals": {
@@ -155,7 +203,8 @@
           "503": {
             "$ref": "#/components/responses/Error"
           }
-        }
+        },
+        "x-implementation-status": "draft-not-implemented"
       }
     },
     "/terminals/{terminal_id}/openings": {
@@ -250,7 +299,8 @@
           "503": {
             "$ref": "#/components/responses/Error"
           }
-        }
+        },
+        "x-implementation-status": "draft-not-implemented"
       }
     },
     "/openings/{opening_id}": {
@@ -300,7 +350,8 @@
           "503": {
             "$ref": "#/components/responses/Error"
           }
-        }
+        },
+        "x-implementation-status": "draft-not-implemented"
       }
     },
     "/openings/{opening_id}/heartbeat": {
@@ -359,7 +410,8 @@
           "503": {
             "$ref": "#/components/responses/Error"
           }
-        }
+        },
+        "x-implementation-status": "draft-not-implemented"
       }
     },
     "/openings/{opening_id}/release": {
@@ -415,7 +467,8 @@
           "503": {
             "$ref": "#/components/responses/Error"
           }
-        }
+        },
+        "x-implementation-status": "draft-not-implemented"
       }
     }
   },
@@ -425,13 +478,13 @@
         "type": "apiKey",
         "in": "header",
         "name": "X-POS-Client-Key",
-        "description": "PROPOSED application authentication, rotated and stored only in private backend env. Not user authorization. API key versus mTLS must be agreed with backend agent within the approved server-to-server login flow."
+        "description": "Approved X-POS-Client-Key: 43 base64url characters, private server secret. Napay stores SHA-256 digests; removal revokes linked sessions."
       },
       "OperatorSession": {
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "opaque",
-        "description": "PROPOSED revocable scoped session, unrelated to Napay browser cookies; held only by POS server, never in URLs."
+        "description": "Opaque napos_ token, absolute expiry (default 12 hours), no automatic renewal. Only backend login implemented; later operations will validate revocation and grants."
       }
     },
     "schemas": {
@@ -468,9 +521,7 @@
         "properties": {
           "access_token": {
             "type": "string",
-            "minLength": 32,
-            "maxLength": 512,
-            "writeOnly": false
+            "pattern": "^napos_[A-Za-z0-9_-]{43}$"
           },
           "token_type": {
             "type": "string",
@@ -489,18 +540,12 @@
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "id",
           "display_name"
         ],
         "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
           "display_name": {
             "type": "string",
-            "minLength": 1,
-            "maxLength": 256
+            "maxLength": 513
           }
         }
       },
@@ -686,5 +731,9 @@
         }
       }
     }
+  },
+  "x-session-ttl-seconds": {
+    "default": 43200,
+    "maximum": 86400
   }
 }
