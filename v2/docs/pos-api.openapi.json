@@ -181,7 +181,7 @@
     "/terminals": {
       "get": {
         "operationId": "listAuthorizedTerminals",
-        "summary": "Filter explicit user-store grants before pagination. Empty grants return an empty list. Labels are store_name - name; no SIN or wallet address.",
+        "summary": "Draft: explicit store grants within the operator sole merchant. Label store_name - name; availability unknown until locks exist. No SIN or wallet address.",
         "parameters": [
           {
             "name": "cursor",
@@ -608,9 +608,9 @@
           "availability": {
             "type": "string",
             "enum": [
-              "available",
-              "in_use"
-            ]
+              "unknown"
+            ],
+            "description": "First catalog only: unknown, displayed as Non verificata. No availability claims or terminal openings until authoritative locking is implemented."
           }
         }
       },

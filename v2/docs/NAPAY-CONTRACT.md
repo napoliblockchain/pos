@@ -100,6 +100,8 @@ Non introduce librerie o endpoint e non richiede credenziali operative.
 | --- | --- |
 | Struttura | Un merchant ha piu negozi; un negozio ha piu POS. |
 | Operatori | Un utente base puo essere abilitato a piu negozi. Il solo ruolo base non concede accesso ai POS. |
+| Merchant operatore | Un solo merchant per operatore; grant espliciti solo verso negozi di quel merchant. Nessuna abilitazione implicita a tutti i suoi negozi. |
+| Primo catalogo | Disponibilita "Non verificata" (`availability: "unknown"`), senza aperture abilitate prima dei lock. |
 | Accesso | Login utente Napay, poi scelta tra i POS autorizzati. Niente login tramite SIN o codice terminale. |
 | Etichetta | Selezione per `descrizione negozio - nome POS`, senza esporre SIN o codici tecnici. |
 | Esclusivita | Un solo dispositivo/apertura attiva per POS. Seconda apertura bloccata, anche se l'utente e lo stesso. |
