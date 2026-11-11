@@ -5,15 +5,25 @@ services:
       context: .
       dockerfile: docker/Dockerfile
     env_file: ${POS_ENV_FILE:?Set private POS env file}
+    environment:
+      NAPAY_API_BASE_URL: https://napay.local/api/pos/v1
+      NAPAY_POS_CLIENT_KEY_FILE: /run/pos-secrets/client-key
+      NAPAY_CA_FILE: /run/pos-secrets/ca.crt
+    secrets: [napay_client_key, napay_ca]
     restart: unless-stopped
     read_only: true
     security_opt: [no-new-privileges:true]
     volumes:
-      - runtime:/srv/pos/runtime
+      - type: bind
+        source: ${POS_RUNTIME_DIR:?Set private external runtime directory}
+        target: /srv/pos/runtime
+        bind:
+          create_host_path: false
     tmpfs:
       - /tmp
       - /var/run/apache2
       - /var/lock/apache2
+      - /run/pos-secrets
     networks:
       browser:
         aliases: [pos-v2-web]
@@ -26,6 +36,9 @@ services:
 networks:
   browser:
     external: true
-    name: napay_local_browser
-volumes:
-  runtime:
+    name: pos_local_browser
+secrets:
+  napay_client_key:
+    file: ${NAPAY_CLIENT_KEY_SOURCE:?Set private client key file}
+  napay_ca:
+    file: ${NAPAY_CA_SOURCE:?Set Caddy CA file}

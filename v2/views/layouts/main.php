@@ -5,7 +5,7 @@
 <title>Napay POS | Anteprima v2</title>
 <link rel="stylesheet" href="/pos.css"><script defer src="/pos.js"></script>
 <?php $this->head() ?></head><body><?php $this->beginBody() ?>
-<header class="masthead"><a href="/" class="brand">na<span>pay</span><small>POINT OF SALE</small></a><span class="status">ANTEPRIMA LOCALE</span></header>
+<header class="masthead"><a href="/" class="brand">na<span>pay</span><small>POINT OF SALE</small></a><a href="/site/login" class="status">ACCESSO OPERATORE</a></header>
 <main><?= $content ?></main>
 <footer>Yii2 / PHP 8.3 <span>Nessun pagamento viene eseguito</span></footer>
 <?php $this->endBody() ?></body></html><?php $this->endPage() ?>
