@@ -15,6 +15,12 @@ sola anteprima 0,01-99.999,99: non definisce limiti di pagamento del backend.
 
 **Non implementati:** autenticazione/pairing terminale, API Napay, incassi
 BTC/TTS, polling stato, storico, ricevute e installazione/offline PWA.
+
+Decisioni concordate il 2026-11-11: login utente base, POS autorizzati per piu
+negozi, apertura esclusiva e sblocco admin/merchant; wallet unico per merchant.
+Il pairing tramite SIN/codici non e il flusso scelto.
+Vedere [contratto funzionale per l'agente Napay](docs/NAPAY-CONTRACT.md).
+Le decisioni documentate non rendono queste funzioni gia disponibili.
 Non e presente una modalita live: `POS_MODE` diverso da `preview` blocca l'avvio.
 Non usare in produzione e non inserire credenziali reali del vecchio POS.
 
@@ -37,8 +43,8 @@ attivita. Il file env POS e gia 0600 e non ne copia i valori.
 
 Il vecchio `POSIdentity::authenticatePOS()` autentica tramite SIN e contiene
 un controllo quote disabilitato. Non viene riutilizzato automaticamente.
-Prima degli incassi occorre concordare il contratto con Napay: provisioning,
-credenziale terminale revocabile, scope azienda/negozio/POS, creazione fattura
+Prima degli incassi occorre concordare il protocollo con Napay: autenticazione
+operatore e apertura revocabile, scope azienda/negozio/POS, creazione fattura
 idempotente, verifiche di stato e autorizzazione su ricevute/storico.
 Nessun protocollo finanziario e stato inventato in questa fase.
 
