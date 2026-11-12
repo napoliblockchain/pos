@@ -7,7 +7,7 @@ Stessa CA di `napay.local` e `wallet.local`, nessuna nuova porta host.
 
 ## Stato reale
 
-Prima dell'implementazione: [SIP-021](../../tips/SIP-021-pos-login-operatori-apertura-esclusiva.md).
+Prima dell'implementazione: [SIP-021](../../sip/SIP-021-pos-login-operatori-apertura-esclusiva.md).
 Le nuove fasi richiedono SIP documentato e approvato; nessuna implementazione
 deriva automaticamente dalla bozza OpenAPI.
 Flusso login approvato: email/password nel POS, verifica API Napay e token
@@ -53,7 +53,7 @@ Il repo mantiene branch `feature/v2-yii2-php83-docker`.
 L'altro agente ha trasferito Napay al Caddy condiviso: commit Napay `6e7bbead`,
 root orchestratore `6c3ab42`. Preservati compose e script Napay/wallet.
 POS risultava ancora Yii1 (ultimo commit applicativo `b82071c`, 2021), senza
-implementazione v2. TIP-020 assegna migrazione associazione/legacy al backoffice.
+implementazione v2. SIP-020 assegna migrazione associazione/legacy al backoffice.
 Questa fase non crea tabelle POS nel database gestito dall'altro agente.
 
 Il file `.env` privato dell'orchestratore e stato ristretto a 0600 durante
