@@ -106,10 +106,16 @@ Non introduce librerie o endpoint e non richiede credenziali operative.
 
 ## Decisioni confermate
 
+Fonte trasversale: [SIP-023](../../../sip/SIP-023-profili-soci-merchant-operatori.md).
+Le regole di scopo account sotto non sono tutte gia applicate dal solo filtro
+ruolo base C2: necessaria progettazione e successivo adeguamento del backend.
+
 | Tema | Regola |
 | --- | --- |
 | Struttura | Un merchant ha piu negozi; un negozio ha piu POS. |
 | Operatori | Solo account base attivi, assegnabili a piu negozi del proprio merchant. Il ruolo base da solo non concede accesso. |
+| Societa merchant | Solo PG socia puo diventare merchant; il gestore amministra ma non usa i POS. |
+| Soci e operatori | L'invito non iscrive all'associazione. Stessa persona socio/operatore: account separati con email differenti; nessun riuso dell'account socio. |
 | Merchant operatore | Un solo merchant per operatore; grant espliciti solo verso negozi di quel merchant. Nessuna abilitazione implicita a tutti i suoi negozi. |
 | Primo catalogo | Disponibilita "Non verificata" (`availability: "unknown"`), senza aperture abilitate prima dei lock. |
 | Accesso | Login utente Napay, poi scelta tra i POS autorizzati. Niente login tramite SIN o codice terminale. |
