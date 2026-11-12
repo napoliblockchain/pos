@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Napay POS API - sessions and authorized catalog available",
-    "version": "0.4.0",
-    "description": "POST/DELETE sessions and GET terminals implemented under SIP-021. Four opening operations remain draft. Server-to-server only; token stays on POS server. No payment or opening endpoints implemented."
+    "version": "0.4.1",
+    "description": "POST/DELETE sessions and GET terminals implemented under SIP-021. Login and bearer use require an active dedicated base operator, enabled POS profile and qualified PG merchant (SIP-023 R1). Members, managers and administrators cannot operate POS. Four opening operations remain draft. Server-to-server only; token stays on POS server. No payment or opening endpoints implemented."
   },
   "x-contract-status": "partial-backend-catalog-implemented",
   "x-login-flow": "pos-form-server-to-server-approved",
@@ -543,7 +543,7 @@
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "opaque",
-        "description": "Opaque napos_ token, absolute expiry (default 12 hours), no automatic renewal. Only backend login implemented; later operations will validate revocation and grants."
+        "description": "Opaque napos_ token, absolute expiry (default 12 hours), no automatic renewal. Session and catalog endpoints check revocation, active dedicated base operator, enabled profile and qualified merchant. Store grants filter the catalog; opening operations remain draft."
       }
     },
     "schemas": {

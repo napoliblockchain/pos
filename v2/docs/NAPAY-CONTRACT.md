@@ -4,7 +4,7 @@ Fonte normativa: [SIP-021](../../../sip/SIP-021-pos-login-operatori-apertura-esc
 Questo documento e allegato tecnico; non sostituisce SIP e approvazione della
 fase prima del codice. Requisiti confermati non implicano protocollo API approvato.
 
-- Data: 2026-11-11.
+- Data: 2026-11-12.
 - Stato: sessioni e catalogo autorizzato implementati secondo SIP-021; aperture da concordare.
 - Perimetro: login operatore, selezione POS e apertura esclusiva; primo collaudo
   TTS su chain locale, senza denaro reale.
@@ -46,6 +46,15 @@ caratteri base64url, scadenza assoluta default 12 ore, nessun refresh.
 Errori JSON: 400 `validation_failed`, 401 `unauthenticated` o `invalid_credentials`,
 429 `rate_limited` con `Retry-After` e 503 `backend_unavailable`. Altri metodi:
 405 sui metodi diversi da POST/DELETE, senza assumere lo stesso formato JSON del framework.
+
+Login POS riservato a operatore dedicato: account base attivo, identita R1
+coerente, profilo POS abilitato e merchant PG qualificato. Soci, admin e gestori
+non ricevono token, nemmeno con password corretta. Profilo assente/disabilitato
+usa lo stesso 401 `invalid_credentials`. Nessun grant richiesto per il login:
+un operatore abilitato senza negozi assegnati riceve catalogo vuoto.
+Token legacy non idoneo o profilo disabilitato: 401 `invalid_token` sul catalogo.
+Fonte: [LOGIN-R1-D3](../../../sip/SIP-021/LOGIN-R1-D3.md). Il client esistente
+gestisce questi errori senza cambiare formato wire o conservare credenziali.
 
 Il browser non chiama questa API direttamente, non riceve il token backend
 e non comunica con URL/host forniti dall'utente. Form login/apertura/logout del
@@ -107,8 +116,8 @@ Non introduce librerie o endpoint e non richiede credenziali operative.
 ## Decisioni confermate
 
 Fonte trasversale: [SIP-023](../../../sip/SIP-023-profili-soci-merchant-operatori.md).
-Le regole di scopo account sotto non sono tutte gia applicate dal solo filtro
-ruolo base C2: necessaria progettazione e successivo adeguamento del backend.
+R1 applicata a login e sessioni/catalogo; iscrizioni PF/PG, autoattivazione
+merchant e inviti restano passaggi separati, non impliciti in questi endpoint.
 
 | Tema | Regola |
 | --- | --- |
