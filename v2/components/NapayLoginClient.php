@@ -70,7 +70,56 @@ class NapayLoginClient extends \yii\base\Component
 
     protected function request(string $method, string $body, string $key, ?string $ip, ?string $token = null): array
     {
-        $curl = curl_init($this->baseUrl . '/sessions');
+        return $this->transport($this->baseUrl . '/sessions', $method, $body, $key, $ip, $token);
+    }
+
+    public function catalog(string $token, ?string $cursor = null, int $limit = 50): array
+    {
+        try {
+            if ($this->baseUrl !== 'https://napay.local/api/pos/v1' || !preg_match('/^napos_[A-Za-z0-9_-]{43}$/D',$token)
+                || $limit < 1 || $limit > 100 || ($cursor !== null && !preg_match('/^[A-Za-z0-9_-]{1,512}$/D',$cursor))
+                || !is_readable($this->caFile) || !is_readable($this->clientKeyFile)) return $this->unavailable();
+            $key = @file_get_contents($this->clientKeyFile,false,null,0,256);
+            if (!is_string($key) || !preg_match('/^[A-Za-z0-9_-]{43}$/D',trim($key))) return $this->unavailable();
+            $params = ['limit'=>$limit]; if ($cursor !== null) $params['cursor']=$cursor;
+            $response = $this->transport($this->baseUrl.'/terminals?'.http_build_query($params,'','&',PHP_QUERY_RFC3986),'GET','',trim($key),null,$token);
+            if (strlen($response['body'] ?? '') > 16384 || !empty($response['setCookie'])
+                || !preg_match('~^application/json(?:\s*;|$)~i',$response['type'] ?? '')) return $this->unavailable();
+            $data = json_decode($response['body'],false,8,JSON_THROW_ON_ERROR);
+            if (($response['status'] ?? null) !== 200) {
+                $code = $data->error->code ?? null;
+                if (($response['status'] ?? null) === 401 && $code === 'invalid_token') return ['ok'=>false,'error'=>'invalid_token'];
+                if (($response['status'] ?? null) === 400 && $code === 'validation_failed') return ['ok'=>false,'error'=>'validation_failed'];
+                if (($response['status'] ?? null) === 429 && $code === 'rate_limited') {
+                    $retry=filter_var($response['retry'] ?? null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1,'max_range'=>60]]);
+                    return ['ok'=>false,'error'=>'rate_limited','retry'=>$retry === false ? 60 : $retry];
+                }
+                return $this->unavailable();
+            }
+            if (!$data instanceof \stdClass || count(get_object_vars($data)) !== 2 || !property_exists($data,'next_cursor')
+                || !is_array($data->items ?? null) || count($data->items) > $limit) return $this->unavailable();
+            if ($data->next_cursor !== null && (!is_string($data->next_cursor) || !preg_match('/^[A-Za-z0-9_-]{1,512}$/D',$data->next_cursor)
+                || $data->items === [] || $data->next_cursor === $cursor)) return $this->unavailable();
+            $items=[]; $ids=[];
+            foreach ($data->items as $item) {
+                if (!$item instanceof \stdClass || count(get_object_vars($item)) !== 4 || ($item->availability ?? null) !== 'unknown'
+                    || !is_string($item->id ?? null) || !preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/D',$item->id)
+                    || isset($ids[$item->id])) return $this->unavailable();
+                foreach (['name','store_name'] as $field) {
+                    if (!is_string($item->$field ?? null) || !mb_check_encoding($item->$field,'UTF-8')
+                        || mb_strlen($item->$field) > 256 || !preg_match('/\S/u',$item->$field)) return $this->unavailable();
+                }
+                $items[]=get_object_vars($item); $ids[$item->id]=true;
+            }
+            return ['ok'=>true,'catalog'=>['items'=>$items,'next_cursor'=>$data->next_cursor]];
+        } catch (\Throwable $error) {
+            return $this->unavailable();
+        }
+    }
+
+    protected function transport(string $url, string $method, string $body, string $key, ?string $ip, ?string $token): array
+    {
+        $curl = curl_init($url);
         $raw = ''; $retry = null; $setCookie = false;
         $headers = ['Content-Type: application/json', 'Accept: application/json', 'Expect:', 'X-POS-Client-Key: ' . $key];
         if ($ip !== null) $headers[] = 'X-POS-Operator-IP: ' . $ip;

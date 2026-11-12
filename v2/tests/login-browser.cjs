@@ -44,6 +44,8 @@ function check(value,label){if(!value)throw new Error(label);++checks;console.lo
   const html=await page.content();
   check(!html.includes(password)&&!html.includes(key)&&!/napos_[A-Za-z0-9_-]{43}/.test(html),'No password, client key or backend token in HTML');
   check(html.includes('Nessun POS aperto'),'Login does not claim terminal grants or opening');
+  check(html.includes('Non risultano POS autorizzati'),'Real sandbox catalog empty without fabricated grants');
+  check(await page.locator('.terminal button').count()===1,'Catalog has logout only, no terminal opening action');
   check(html.includes('Il logout revoca la sessione Napay'),'Central logout behavior is explicit');
   const cookies=await context.cookies();const session=cookies.find(item=>item.name==='POSSESSID');
   check(session&&session.value!==oldId.value,'Browser session ID rotated after login');

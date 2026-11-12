@@ -1,5 +1,5 @@
 <?php use yii\helpers\Html; ?>
-<section class="intro"><p class="eyebrow">ACCESSO OPERATORE</p><h1>Il tuo account.<br>I tuoi punti vendita.</h1><p class="subtitle">Verifica credenziali tramite Napay</p><div class="notice"><strong>Login disponibile, incassi disabilitati</strong><p>La lista dei negozi e dei POS sara collegata nel prossimo micro-step. Nessun SIN o codice terminale richiesto.</p></div></section>
+<section class="intro"><p class="eyebrow">ACCESSO OPERATORE</p><h1>Il tuo account.<br>I tuoi punti vendita.</h1><p class="subtitle">Verifica credenziali tramite Napay</p><div class="notice"><strong>Catalogo autorizzato, incassi disabilitati</strong><p>Visualizza i punti cassa dei negozi assegnati. Apertura e incassi non ancora abilitati. Nessun SIN o codice terminale richiesto.</p></div></section>
 <section class="terminal" aria-label="Login operatore">
 <?= Html::beginForm(['/site/login'], 'post', ['id' => 'operator-login', 'autocomplete' => 'on']) ?>
 <?= Html::errorSummary($model, ['class' => 'error', 'role' => 'alert']) ?>

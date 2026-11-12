@@ -58,7 +58,21 @@ class SiteController extends Controller
     {
         $operator = Yii::$app->operatorSession->current();
         if ($operator === null) return $this->redirect(['login']);
-        return $this->render('account', ['displayName' => $operator['name']]);
+        $cursor = Yii::$app->request->get('cursor');
+        if ($cursor !== null && (!is_string($cursor) || !preg_match('/^[A-Za-z0-9_-]{1,512}$/D',$cursor))) {
+            Yii::$app->response->statusCode=400;
+            return $this->render('account',['displayName'=>$operator['name'],'catalogError'=>true]);
+        }
+        $result = Yii::$app->napayLogin->catalog($operator['token'],$cursor);
+        if (!$result['ok'] && $result['error'] === 'invalid_token') {
+            Yii::$app->operatorSession->forget();
+            return $this->redirect(['login']);
+        }
+        if (!$result['ok']) {
+            Yii::$app->response->statusCode = $result['error'] === 'validation_failed' ? 400 : ($result['error'] === 'rate_limited' ? 429 : 503);
+            if ($result['error'] === 'rate_limited') Yii::$app->response->headers->set('Retry-After',(string)$result['retry']);
+        }
+        return $this->render('account', ['displayName'=>$operator['name'],'catalog'=>$result['catalog'] ?? null,'catalogError'=>!$result['ok']]);
     }
 
     public function actionLogout()
