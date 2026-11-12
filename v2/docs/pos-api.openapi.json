@@ -1,11 +1,11 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Napay POS API - login/logout available, remaining operations draft",
-    "version": "0.3.0",
-    "description": "POST and DELETE /sessions implemented and approved in SIP-021. Five remaining operations are draft. Server-to-server only; token stays on POS server. No payment endpoints or openings yet."
+    "title": "Napay POS API - sessions and authorized catalog available",
+    "version": "0.4.0",
+    "description": "POST/DELETE sessions and GET terminals implemented under SIP-021. Four opening operations remain draft. Server-to-server only; token stays on POS server. No payment or opening endpoints implemented."
   },
-  "x-contract-status": "partial-backend-sessions-implemented",
+  "x-contract-status": "partial-backend-catalog-implemented",
   "x-login-flow": "pos-form-server-to-server-approved",
   "servers": [
     {
@@ -181,7 +181,7 @@
     "/terminals": {
       "get": {
         "operationId": "listAuthorizedTerminals",
-        "summary": "Draft: explicit store grants within the operator sole merchant. Label store_name - name; availability unknown until locks exist. No SIN or wallet address.",
+        "summary": "Explicit enabled store grants within the operator sole merchant; no role bypass. Unknown availability; no SIN/wallet fields.",
         "parameters": [
           {
             "name": "cursor",
@@ -190,7 +190,8 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 512
-            }
+            },
+            "description": "Encrypted/authenticated cursor bound to current session, client and limit; rechecks grants on every page."
           },
           {
             "name": "limit",
@@ -229,14 +230,40 @@
           "401": {
             "$ref": "#/components/responses/Error"
           },
+          "405": {
+            "description": "Method not allowed; framework response without sensitive details. No stable error body guaranteed."
+          },
           "429": {
-            "$ref": "#/components/responses/Error"
+            "description": "Catalog rate limit; client 120/min and session 30/min.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 900
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "503": {
             "$ref": "#/components/responses/Error"
           }
         },
-        "x-implementation-status": "draft-not-implemented"
+        "x-implementation-status": "backend-implemented",
+        "description": "Client 120/min, session 30/min. JSON at most 16384 bytes; pages may contain fewer than limit items due to byte budget. Invalid operator session: invalid_token; service authentication: unauthenticated. Empty GET body, no unknown query parameters."
       }
     },
     "/terminals/{terminal_id}/openings": {

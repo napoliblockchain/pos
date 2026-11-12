@@ -5,16 +5,16 @@ Questo documento e allegato tecnico; non sostituisce SIP e approvazione della
 fase prima del codice. Requisiti confermati non implicano protocollo API approvato.
 
 - Data: 2026-11-11.
-- Stato: login POS/server-to-server implementato sul contratto definitivo SIP-021; altre API da concordare.
+- Stato: sessioni e catalogo autorizzato implementati secondo SIP-021; aperture da concordare.
 - Perimetro: login operatore, selezione POS e apertura esclusiva; primo collaudo
   TTS su chain locale, senza denaro reale.
-- `POST /sessions` e `DELETE /sessions` disponibili. POS senza incassi, catalogo o aperture.
+- `POST /sessions`, `DELETE /sessions`, `GET /terminals` disponibili. Nessun incasso o apertura.
 
 ## Bozza tecnica per l'agente Napay
 
 Specifica proposta: [pos-api.openapi.json](pos-api.openapi.json), formato
 [OpenAPI 3.1](https://spec.openapis.org/oas/v3.1.0.html).
-Stato `partial-backend-sessions-implemented`: login/logout allineati al backend; le altre cinque
+Stato `partial-backend-catalog-implemented`: sessioni/catalogo allineati al backend; le altre quattro
 operazioni restano bozze, non rotte operative o accordi API gia raggiunti.
 
 Backend del 2026-11-11: Napay commit `b79ae7ab` implementa il login API solo email.
@@ -22,7 +22,7 @@ Il vecchio login tramite username non va
 riproposto. La password deve essere verificata dal backend con le regole
 centralizzate esistenti, senza copiarne hash o replicare la logica nel POS.
 
-Base `/api/pos/v1` (solo prime due righe implementate):
+Base `/api/pos/v1` (solo prime tre righe implementate):
 
 | Metodo/percorso | Scopo |
 | --- | --- |
@@ -62,9 +62,19 @@ upstream. Logout `DELETE /sessions`: chiave client e bearer, corpo vuoto;
 sessioni altrui. Bearer malformato: 401 `invalid_token`; corpo presente: 400;
 limite separato 60/min per client: 429; errore backend: 503. POS elimina la
 sessione locale solo dopo 204 verificato; errore mantiene custodia e consente retry.
-La pagina account
-non certifica grant o stato remoto; ogni futura API protetta dovra riverificarli.
+La pagina account rilegge il catalogo a ogni visita; non certifica disponibilita
+o apertura e ogni futura API protetta dovra riverificare grant/sessione.
 Percorsi privati e test reali descritti nel [README](../README.md).
+
+Catalogo: [contratto C2/C3](../../../sip/SIP-021/C2-CONTRATTO.md). Solo account
+base attivi, profilo/grant/terminale abilitati sullo stesso merchant, scope SQL
+prima di keyset/paginazione. Nessun bypass per ruolo, lista vuota senza grant.
+Cursor cifrato con autenticazione, legato a sessione/client/limit; JSON massimo
+16 KiB, limite righe 1..100 (default 50). Disponibilita solo `unknown`.
+Budget client 120/min e sessione 30/min; 400 `validation_failed`, 401
+`unauthenticated`/`invalid_token`, 429 `rate_limited`, 503 `backend_unavailable`.
+Altri metodi 405. Invalidazione remota elimina custodia POS; guasto non mostra
+una lista in cache. Nessuna apertura acquisita da questo GET.
 
 Acquisizione nuova occupata: `409 terminal_in_use`. Replay della stessa chiave
 idempotente e stesso payload: ritorno dell'apertura originale; chiave riusata
@@ -99,7 +109,7 @@ Non introduce librerie o endpoint e non richiede credenziali operative.
 | Tema | Regola |
 | --- | --- |
 | Struttura | Un merchant ha piu negozi; un negozio ha piu POS. |
-| Operatori | Un utente base puo essere abilitato a piu negozi. Il solo ruolo base non concede accesso ai POS. |
+| Operatori | Solo account base attivi, assegnabili a piu negozi del proprio merchant. Il ruolo base da solo non concede accesso. |
 | Merchant operatore | Un solo merchant per operatore; grant espliciti solo verso negozi di quel merchant. Nessuna abilitazione implicita a tutti i suoi negozi. |
 | Primo catalogo | Disponibilita "Non verificata" (`availability: "unknown"`), senza aperture abilitate prima dei lock. |
 | Accesso | Login utente Napay, poi scelta tra i POS autorizzati. Niente login tramite SIN o codice terminale. |

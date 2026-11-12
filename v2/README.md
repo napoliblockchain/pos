@@ -20,7 +20,7 @@ HTTP attivi. Il pulsante verifica solo l'importo; non crea fatture, QR,
 transazioni, saldo o ricevute. Importi EUR in centesimi interi, intervallo della
 sola anteprima 0,01-99.999,99: non definisce limiti di pagamento del backend.
 
-**Non implementati:** catalogo/apertura esclusiva terminale, incassi
+**Non implementati:** apertura esclusiva terminale, incassi
 BTC/TTS, polling stato, storico, ricevute e installazione/offline PWA.
 
 Decisioni concordate il 2026-11-11: login utente base, POS autorizzati per piu
@@ -29,20 +29,30 @@ Il pairing tramite SIN/codici non e il flusso scelto.
 Vedere [contratto funzionale per l'agente Napay](docs/NAPAY-CONTRACT.md).
 Le decisioni documentate non rendono queste funzioni gia disponibili.
 Disponibile [bozza OpenAPI](docs/pos-api.openapi.json) per l'agente backend:
-7 operazioni: login e logout implementati sul contratto definitivo SIP-021;
-altre 5 ancora proposte, non implementate. Controlli strutturali ripetibili:
+7 operazioni: login, logout e catalogo implementati sul contratto SIP-021;
+altre 4 ancora proposte, non implementate. Controlli strutturali ripetibili:
 `node tests/api-contract.cjs`, senza test o chiamate al backend operativo.
 Non e presente una modalita live: `POS_MODE` diverso da `preview` blocca l'avvio.
 Non usare in produzione; per il collaudo usare solo account della sandbox locale.
 
 Accesso da **https://pos.localhost/site/login**. Dopo il login compare soltanto
-il nome operatore, non un terminale aperto. Token Napay custodito nella sessione
+il nome operatore e il catalogo autorizzato, non un terminale aperto. Solo
+account base attivi, profilo e grant abilitati per negozi dello stesso merchant;
+nessun grant implicito per ruolo. Lista vuota reale se non assegnato. Token Napay custodito nella sessione
 PHP sul server, ID rigenerato al login, scadenza assoluta ricevuta dal backend
 (default 12 ore). Logout chiama `DELETE /sessions` con chiave client e bearer
 solo server-to-server: dopo 204 elimina la sessione locale. In caso di errore
 mantiene la sessione e propone retry, senza dichiarare una revoca non confermata.
 La revoca e idempotente e limitata al token di quel client. Le future operazioni protette
 dovranno riverificare grant/revoche sul backend; la pagina account non li certifica.
+
+Il catalogo viene riletto da Napay a ogni visita/pagina, senza cache dei grant.
+Mostra `descrizione negozio - nome POS` e "Non verificata", senza comandi di
+apertura. Cursor cifrato legato a sessione/client/limit; nessun token backend
+nel link. Default 50 righe, massimo 100, ma il budget JSON 16 KiB puo produrre
+pagine piu corte. Errori temporanei non riutilizzano elenchi precedenti;
+sessione remota non valida elimina la custodia locale e richiede nuovo login.
+Contratto: [C2/C3](../../sip/SIP-021/C2-CONTRATTO.md).
 
 Il codice Yii1 resta intatto, ma non viene montato o caricato dal container v2.
 Nessun runtime da `yii-1.1.22`, `packages` o vendor di Napay/poawallet.
@@ -151,6 +161,7 @@ docker exec pos-v2-local-web-1 php tests/amount.php
 docker exec pos-v2-local-web-1 php tests/config.php
 docker exec pos-v2-local-web-1 php tests/login-client.php
 docker exec pos-v2-local-web-1 php tests/logout-client.php
+docker exec pos-v2-local-web-1 php tests/catalog-client.php
 docker exec --user 33 pos-v2-local-web-1 php tests/transport.php
 node tests/api-contract.cjs
 node tests/local-state.test.cjs
@@ -168,7 +179,7 @@ CA in `$NAPAY_LOCAL_STATE/caddy-root.crt`;
 2 trasporto TLS reale, 7 percorsi privati e 24 HTTPS/browser (390/1280px), inclusi CSRF, array/strutture
 malformate, XSS, percorsi privati e assenza operazioni finanziarie. Validazione
 strict e audit Composer eseguiti; sintassi PHP/JS/shell e Compose controllati.
-Ulteriori 22 test browser eseguono login/logout reale POS/Napay sulla fixture locale,
+Ulteriori 24 test browser eseguono login/logout reale POS/Napay sulla fixture locale,
 rigenerazione sessione, CSRF logout e assenza segreti nel browser. Altri 18
 controlli simulati verificano il client/controller logout, inclusa custodia
 locale mantenuta dopo errore e retry confermato. Nessun denaro reale.
@@ -178,3 +189,8 @@ concorrenza, cambio password, scadenza, account disabilitato, DB indisponibile,
 rate limit e assenza segreti). Nessuna modifica al DB operativo per questi test.
 I 37 test simulati e i controlli strutturali OpenAPI non provano autorizzazioni
 backend o lock. Non e configurato PHPStan/PHPCS. Nessun test di incasso o apertura esclusiva dichiarato.
+
+Catalogo: 37 controlli client/vista/controller con trasporto simulato. API reale
+popolata verificata solo su MySQL usa-e-getta con `napay/tests/docker/pos-terminals.sh`;
+la sandbox browser conserva il proprio catalogo reale, anche vuoto. Nessun seed
+di grant o terminali inserito nella sandbox per far apparire riuscita la demo.

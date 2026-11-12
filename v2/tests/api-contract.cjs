@@ -5,7 +5,9 @@ const path = require('node:path');
 const file = path.resolve(__dirname, '../docs/pos-api.openapi.json');
 const spec = JSON.parse(fs.readFileSync(file, 'utf8'));
 assert.equal(spec.openapi, '3.1.0');
-assert.equal(spec['x-contract-status'], 'partial-backend-sessions-implemented');
+assert.equal(spec['x-contract-status'], 'partial-backend-catalog-implemented');
+assert.equal(spec.paths['/terminals'].get['x-implementation-status'], 'backend-implemented');
+assert.ok(spec.paths['/terminals'].get.responses['405']);
 assert.equal(spec.paths['/sessions'].delete['x-implementation-status'], 'backend-implemented');
 assert.ok(spec.paths['/sessions'].delete.responses['429']);
 assert.ok(!spec.paths['/sessions'].delete.responses['204'].content);
@@ -44,7 +46,7 @@ for (const [route, item] of Object.entries(spec.paths)) {
     if (!methods.includes(method)) continue;
     assert.ok(operation.operationId && !ids.has(operation.operationId));
     ids.add(operation.operationId); ++operations;
-    if (!['createOperatorSession', 'logoutOperator'].includes(operation.operationId)) assert.equal(operation['x-implementation-status'], 'draft-not-implemented');
+    if (!['createOperatorSession', 'logoutOperator', 'listAuthorizedTerminals'].includes(operation.operationId)) assert.equal(operation['x-implementation-status'], 'draft-not-implemented');
     assert.ok(operation.responses['401'] && operation.responses['503']);
     assert.notDeepEqual(operation.security, [], 'No anonymous operations');
     for (const match of route.matchAll(/\{([^}]+)\}/g)) {
@@ -55,4 +57,4 @@ for (const [route, item] of Object.entries(spec.paths)) {
 assert.equal(operations, 7);
 assert.ok(spec.paths['/terminals/{terminal_id}/openings'].post.responses['409']);
 assert.ok(spec.paths['/openings/{opening_id}/heartbeat'].post.responses['409']);
-console.log(`PASS POS API structure: login/logout implemented, ${operations - 2} draft operations, ${references} local references resolved`);
+console.log(`PASS POS API structure: sessions/catalog implemented, ${operations - 3} draft operations, ${references} local references resolved`);
