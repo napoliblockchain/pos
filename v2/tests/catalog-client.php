@@ -7,7 +7,7 @@ mkdir($work,0700); mkdir($work.'/sessions',0700);
 file_put_contents($work.'/key',str_repeat('K',43)); file_put_contents($work.'/ca','simulated transport');
 class FakeCatalogClient extends app\components\NapayLoginClient {
     public $response; public $sent; public $calls=0;
-    protected function transport(string $url,string $method,string $body,string $key,?string $ip,?string $token):array {
+    protected function transport(string $url,string $method,string $body,string $key,?string $ip,?string $token,?string $idempotencyKey=null):array {
         ++$this->calls; $this->sent=[$url,$method,$body,$ip,$token]; return $this->response;
     }
 }
@@ -46,8 +46,9 @@ try {
     $app->operatorSession->establish(['token'=>$token,'expires'=>time()+3600,'name'=>'Fixture']);
     $client->response=$reply($valid);$html=$controller->actionAccount();
     $check(str_contains($html,'&lt;svg')&&!str_contains($html,'<svg onload'),'Catalog labels HTML encoded');
-    $check(str_contains($html,'Non verificata')&&!str_contains($html,$token),'Availability honest and no token in HTML');
-    $check(!str_contains($html,$item['id']),'Terminal technical identifier not rendered without opening flow');
+    $check(str_contains($html,'class="open-terminal"')&&!str_contains($html,$token),'Each POS is an open button; no token in HTML');
+    // SIP-021 fase 2: l'ID pubblico del terminale serve al form di apertura (POST con CSRF), mai come prova di accesso.
+    $check(substr_count($html,$item['id'])===1&&str_contains($html,'name="terminal" value="'.$item['id'].'"')&&preg_match('/name="key" value="[0-9a-f-]{36}"/',$html),'Terminal ID only in the opening form, with idempotency key');
     $check(str_contains($html,'Pagina successiva'),'Pagination link rendered');
     $client->response=$reply(['items'=>[],'next_cursor'=>null]);$check(str_contains($controller->actionAccount(),'Non risultano POS autorizzati'),'Empty catalog explicit');
     $client->response=$reply(['error'=>['code'=>'backend_unavailable']],503);$html=$controller->actionAccount();
