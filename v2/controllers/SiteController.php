@@ -14,7 +14,8 @@ class SiteController extends Controller
     public function behaviors()
     {
         return ['verbs' => ['class' => VerbFilter::class, 'actions' => ['index' => ['GET', 'POST'], 'health' => ['GET'],
-            'login' => ['GET', 'POST'], 'account' => ['GET'], 'logout' => ['POST']]]];
+            'login' => ['GET', 'POST'], 'account' => ['GET'], 'logout' => ['POST'],
+            'open' => ['POST'], 'heartbeat' => ['POST'], 'release' => ['POST']]]];
     }
 
     public function beforeAction($action)
@@ -72,7 +73,69 @@ class SiteController extends Controller
             Yii::$app->response->statusCode = $result['error'] === 'validation_failed' ? 400 : ($result['error'] === 'rate_limited' ? 429 : 503);
             if ($result['error'] === 'rate_limited') Yii::$app->response->headers->set('Retry-After',(string)$result['retry']);
         }
-        return $this->render('account', ['displayName'=>$operator['name'],'catalog'=>$result['catalog'] ?? null,'catalogError'=>!$result['ok']]);
+        if (Yii::$app->operatorSession->opening() !== null) return $this->redirect(['index']);
+        return $this->render('account', ['displayName'=>$operator['name'],'catalog'=>$result['catalog'] ?? null,'catalogError'=>!$result['ok'],
+            'notice'=>Yii::$app->session->getFlash('pos')]);
+    }
+
+    /** SIP-021 fase 2: apertura esclusiva del terminale scelto; la chiave del form rende innocuo un doppio invio. */
+    public function actionOpen()
+    {
+        $operator = Yii::$app->operatorSession->current();
+        if ($operator === null) return $this->redirect(['login']);
+        if (Yii::$app->operatorSession->opening() !== null) return $this->redirect(['index']);
+        $terminal = Yii::$app->request->post('terminal'); $key = Yii::$app->request->post('key'); $label = Yii::$app->request->post('label');
+        if (!is_string($terminal) || !is_string($key) || !is_string($label) || mb_strlen($label) > 520 || !mb_check_encoding($label, 'UTF-8')) throw new BadRequestHttpException('Richiesta non valida.');
+        $result = Yii::$app->napayLogin->openTerminal($operator['token'], $terminal, (string) Yii::$app->operatorSession->instance(), $key);
+        if ($result['ok']) {
+            Yii::$app->operatorSession->keepOpening($result['opening'], $label);
+            return $this->redirect(['index']);
+        }
+        if ($result['error'] === 'invalid_token') { Yii::$app->operatorSession->forget(); return $this->redirect(['login']); }
+        Yii::$app->session->setFlash('pos', [
+            'terminal_in_use' => 'POS occupato da un altro dispositivo. Se è bloccato, chiedi al responsabile di sbloccarlo.',
+            'not_found' => 'Questo POS non è più disponibile per il tuo account.',
+            'opening_invalid' => 'Apertura non più valida: riprova.',
+            'rate_limited' => 'Troppi tentativi: attendi qualche secondo e riprova.',
+        ][$result['error']] ?? 'Napay non raggiungibile: riprova.');
+        return $this->redirect(['account']);
+    }
+
+    /** Segnale di vita ogni 30 s (solo informativo per il responsabile). JSON per pos.js. */
+    public function actionHeartbeat()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+        $operator = Yii::$app->operatorSession->current();
+        $opening = Yii::$app->operatorSession->opening();
+        if ($operator === null) return ['status' => 'logout'];
+        if ($opening === null) return ['status' => 'closed'];
+        $result = Yii::$app->napayLogin->heartbeat($operator['token'], $opening['opening']);
+        if ($result['ok']) return ['status' => 'ok'];
+        if ($result['error'] === 'invalid_token') { Yii::$app->operatorSession->forget(); return ['status' => 'logout']; }
+        if (in_array($result['error'], ['opening_invalid', 'not_found'], true)) {
+            Yii::$app->operatorSession->dropOpening();
+            Yii::$app->session->setFlash('pos', 'Il POS è stato chiuso o sbloccato dal responsabile.');
+            return ['status' => 'closed'];
+        }
+        return ['status' => 'retry'];
+    }
+
+    /** Chiusura normale: la sessione locale lascia l'apertura solo dopo conferma di Napay (o se Napay la dà già chiusa). */
+    public function actionRelease()
+    {
+        $operator = Yii::$app->operatorSession->current();
+        $opening = Yii::$app->operatorSession->opening();
+        if ($operator === null) return $this->redirect(['login']);
+        if ($opening === null) return $this->redirect(['account']);
+        $result = Yii::$app->napayLogin->release($operator['token'], $opening['opening']);
+        if ($result['ok'] || in_array($result['error'], ['opening_invalid', 'not_found'], true)) {
+            Yii::$app->operatorSession->dropOpening();
+            Yii::$app->session->setFlash('pos', 'POS chiuso.');
+            return $this->redirect(['account']);
+        }
+        if ($result['error'] === 'invalid_token') { Yii::$app->operatorSession->forget(); return $this->redirect(['login']); }
+        Yii::$app->response->statusCode = 503;
+        return $this->render('index', ['model' => new AmountForm(), 'verified' => false, 'label' => $opening['label'], 'releaseFailed' => true]);
     }
 
     public function actionLogout()
@@ -86,17 +149,31 @@ class SiteController extends Controller
         return $this->redirect(['login']);
     }
 
+    /** Schermata cassa: solo con un'apertura che Napay conferma valida a ogni caricamento. */
     public function actionIndex()
     {
+        $operator = Yii::$app->operatorSession->current();
+        if ($operator === null) return $this->redirect(['login']);
+        $opening = Yii::$app->operatorSession->opening();
+        if ($opening === null) return $this->redirect(['account']);
+        $check = Yii::$app->napayLogin->viewOpening($operator['token'], $opening['opening']);
+        if (!$check['ok'] && $check['error'] === 'invalid_token') { Yii::$app->operatorSession->forget(); return $this->redirect(['login']); }
+        if (!$check['ok'] && in_array($check['error'], ['opening_invalid', 'not_found'], true)) {
+            Yii::$app->operatorSession->dropOpening();
+            Yii::$app->session->setFlash('pos', 'Il POS è stato chiuso o sbloccato dal responsabile.');
+            return $this->redirect(['account']);
+        }
         $model = new AmountForm();
         $verified = false;
-        if (Yii::$app->request->isPost) {
+        if (!$check['ok']) {
+            Yii::$app->response->statusCode = 503;
+        } elseif (Yii::$app->request->isPost) {
             $data = Yii::$app->request->post('AmountForm');
             if (!is_array($data)) throw new BadRequestHttpException('Richiesta non valida.');
             $model->setAttributes($data);
             $verified = $model->validate();
         }
-        return $this->render('index', ['model' => $model, 'verified' => $verified]);
+        return $this->render('index', ['model' => $model, 'verified' => $verified, 'label' => $opening['label'], 'unverified' => !$check['ok']]);
     }
 
     public function actionHealth()
