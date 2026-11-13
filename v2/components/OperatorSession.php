@@ -3,10 +3,11 @@ namespace app\components;
 
 use Yii;
 
-/** Local custody only: no store/POS grants or continuous remote validation implied. */
+/** Local custody only: Napay token, POS instance and current opening; grants are always rechecked by Napay. */
 class OperatorSession extends \yii\base\Component
 {
     private const KEY = 'pos.operator';
+    private const OPENING = 'pos.opening';
 
     public function current(): ?array
     {
@@ -14,6 +15,7 @@ class OperatorSession extends \yii\base\Component
         if (!is_array($value) || !is_int($value['expires'] ?? null) || $value['expires'] <= time()
             || !is_string($value['token'] ?? null) || !preg_match('/^napos_[A-Za-z0-9_-]{43}$/D', $value['token'])
             || !is_string($value['name'] ?? null)) {
+            Yii::$app->session->remove(self::OPENING);
             Yii::$app->session->remove(self::KEY);
             return null;
         }
@@ -23,7 +25,50 @@ class OperatorSession extends \yii\base\Component
     public function establish(array $session): void
     {
         Yii::$app->session->regenerateID(true);
-        Yii::$app->session->set(self::KEY, $session);
+        // Una istanza per sessione browser: le altre schede della stessa sessione la condividono, un altro dispositivo no.
+        Yii::$app->session->set(self::KEY, $session + ['instance' => self::uuid()]);
+    }
+
+    /** SIP-021 fase 2: istanza POS di questa sessione, inviata a Napay come instance_id. */
+    public function instance(): ?string
+    {
+        $instance = $this->current()['instance'] ?? null;
+        return is_string($instance) && preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/D', $instance) ? $instance : null;
+    }
+
+    /** Apertura attiva custodita solo nella sessione server (mai nel browser), con l'etichetta mostrata. */
+    public function opening(): ?array
+    {
+        $value = Yii::$app->session->get(self::OPENING);
+        if (!is_array($value) || !NapayLoginClient::validOpening($value['opening'] ?? null) || !is_string($value['label'] ?? null)) {
+            Yii::$app->session->remove(self::OPENING);
+            return null;
+        }
+        return $value;
+    }
+
+    public function keepOpening(array $opening, string $label): void
+    {
+        Yii::$app->session->set(self::OPENING, ['opening' => $opening, 'label' => $label]);
+    }
+
+    public function dropOpening(): void
+    {
+        Yii::$app->session->remove(self::OPENING);
+    }
+
+    /** Chiave di idempotenza di un form di apertura (UUID v4). */
+    public static function newKey(): string
+    {
+        return self::uuid();
+    }
+
+    private static function uuid(): string
+    {
+        $bytes = random_bytes(16);
+        $bytes[6] = chr(ord($bytes[6]) & 0x0f | 0x40);
+        $bytes[8] = chr(ord($bytes[8]) & 0x3f | 0x80);
+        return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($bytes), 4));
     }
 
     public function forget(): void

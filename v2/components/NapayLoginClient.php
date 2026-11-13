@@ -117,13 +117,88 @@ class NapayLoginClient extends \yii\base\Component
         }
     }
 
-    protected function transport(string $url, string $method, string $body, string $key, ?string $ip, ?string $token): array
+    /**
+     * SIP-021 fase 2: aperture esclusive. Esiti: ok + opening, oppure errore pubblico tra terminal_in_use,
+     * not_found, opening_invalid, invalid_token, rate_limited (con retry), backend_unavailable. Mai testo upstream.
+     */
+    public function openTerminal(string $token, string $terminalId, string $instanceId, string $idempotencyKey): array
+    {
+        if (!self::uuid($terminalId) || !self::uuid($instanceId) || !self::uuid($idempotencyKey)) return $this->unavailable();
+        return $this->opening('POST', '/terminals/' . $terminalId . '/openings', $token, ['instance_id' => $instanceId], $idempotencyKey, [200, 201], $terminalId, $instanceId);
+    }
+
+    public function viewOpening(string $token, array $opening): array
+    {
+        return self::validOpening($opening) ? $this->opening('GET', '/openings/' . $opening['id'], $token, null, null, [200], $opening['terminal_id'], $opening['instance_id'], $opening) : $this->unavailable();
+    }
+
+    public function heartbeat(string $token, array $opening): array
+    {
+        return self::validOpening($opening) ? $this->opening('POST', '/openings/' . $opening['id'] . '/heartbeat', $token,
+            ['instance_id' => $opening['instance_id'], 'generation' => $opening['generation']], null, [204]) : $this->unavailable();
+    }
+
+    public function release(string $token, array $opening): array
+    {
+        return self::validOpening($opening) ? $this->opening('POST', '/openings/' . $opening['id'] . '/release', $token,
+            ['instance_id' => $opening['instance_id'], 'generation' => $opening['generation']], null, [204]) : $this->unavailable();
+    }
+
+    /** Apertura come restituita da Napay e custodita nella sessione POS: cinque campi esatti. */
+    public static function validOpening($opening): bool
+    {
+        return is_array($opening) && array_keys($opening) === ['id', 'terminal_id', 'instance_id', 'generation', 'state']
+            && self::uuid($opening['id']) && self::uuid($opening['terminal_id']) && self::uuid($opening['instance_id'])
+            && is_string($opening['generation']) && preg_match('/^[1-9][0-9]{0,18}$/D', $opening['generation']) === 1 && $opening['state'] === 'active';
+    }
+
+    private function opening(string $method, string $path, string $token, ?array $body, ?string $idempotencyKey, array $success,
+        ?string $terminalId = null, ?string $instanceId = null, ?array $expected = null): array
+    {
+        try {
+            if ($this->baseUrl !== 'https://napay.local/api/pos/v1' || !preg_match('/^napos_[A-Za-z0-9_-]{43}$/D', $token)
+                || !is_readable($this->caFile) || !is_readable($this->clientKeyFile)) return $this->unavailable();
+            $key = @file_get_contents($this->clientKeyFile, false, null, 0, 256);
+            if (!is_string($key) || !preg_match('/^[A-Za-z0-9_-]{43}$/D', trim($key))) return $this->unavailable();
+            $payload = $body === null ? '' : json_encode($body, JSON_THROW_ON_ERROR);
+            $response = $this->transport($this->baseUrl . $path, $method, $payload, trim($key), null, $token, $idempotencyKey);
+            $status = $response['status'] ?? null;
+            if (!empty($response['setCookie']) || strlen($response['body'] ?? '') > 16384) return $this->unavailable();
+            if (in_array($status, $success, true) && $status === 204) return ($response['body'] ?? null) === '' ? ['ok' => true] : $this->unavailable();
+            if (!preg_match('~^application/json(?:\s*;|$)~i', $response['type'] ?? '')) return $this->unavailable();
+            $data = json_decode($response['body'], true, 4, JSON_THROW_ON_ERROR);
+            if (in_array($status, $success, true)) {
+                // La risposta deve descrivere proprio l'apertura richiesta o verificata.
+                if (!self::validOpening($data) || $data['terminal_id'] !== $terminalId || $data['instance_id'] !== $instanceId
+                    || ($expected !== null && $data !== $expected)) return $this->unavailable();
+                return ['ok' => true, 'opening' => $data];
+            }
+            $code = is_array($data) ? ($data['error']['code'] ?? null) : null;
+            $known = [401 => ['invalid_token'], 404 => ['not_found'], 409 => ['terminal_in_use', 'opening_invalid', 'idempotency_conflict'], 400 => ['validation_failed']];
+            if ($status === 429 && $code === 'rate_limited') {
+                $retry = filter_var($response['retry'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 60]]);
+                return ['ok' => false, 'error' => 'rate_limited', 'retry' => $retry === false ? 60 : $retry];
+            }
+            if (in_array($code, $known[$status] ?? [], true)) return ['ok' => false, 'error' => $code];
+            return $this->unavailable();
+        } catch (\Throwable $error) {
+            return $this->unavailable();
+        }
+    }
+
+    private static function uuid($value): bool
+    {
+        return is_string($value) && preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/D', $value) === 1;
+    }
+
+    protected function transport(string $url, string $method, string $body, string $key, ?string $ip, ?string $token, ?string $idempotencyKey = null): array
     {
         $curl = curl_init($url);
         $raw = ''; $retry = null; $setCookie = false;
         $headers = ['Content-Type: application/json', 'Accept: application/json', 'Expect:', 'X-POS-Client-Key: ' . $key];
         if ($ip !== null) $headers[] = 'X-POS-Operator-IP: ' . $ip;
         if ($token !== null) $headers[] = 'Authorization: Bearer ' . $token;
+        if ($idempotencyKey !== null) $headers[] = 'Idempotency-Key: ' . $idempotencyKey;
         try {
             curl_setopt_array($curl, [CURLOPT_CUSTOMREQUEST => $method, CURLOPT_POSTFIELDS => $body, CURLOPT_HTTPHEADER => $headers,
                 CURLOPT_TIMEOUT => 5, CURLOPT_CONNECTTIMEOUT => 5, CURLOPT_PROXY => '', CURLOPT_FOLLOWLOCATION => false,
