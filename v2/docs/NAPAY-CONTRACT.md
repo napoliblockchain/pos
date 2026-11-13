@@ -14,8 +14,8 @@ fase prima del codice. Requisiti confermati non implicano protocollo API approva
 
 Specifica proposta: [pos-api.openapi.json](pos-api.openapi.json), formato
 [OpenAPI 3.1](https://spec.openapis.org/oas/v3.1.0.html).
-Stato `partial-backend-catalog-implemented`: sessioni/catalogo allineati al backend; le altre quattro
-operazioni restano bozze, non rotte operative o accordi API gia raggiunti.
+Sessioni/catalogo allineati al backend; dal 2026-11-13 anche le quattro operazioni
+di apertura sono implementate secondo `sip/SIP-021/APERTURE-CONTRATTO.md`.
 
 Backend del 2026-11-11: Napay commit `b79ae7ab` implementa il login API solo email.
 Il vecchio login tramite username non va
