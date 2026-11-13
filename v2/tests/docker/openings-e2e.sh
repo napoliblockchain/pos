@@ -6,15 +6,34 @@
 set -eu
 pos_root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 napay_root=$(CDPATH= cd -- "${NAPAY_SOURCE:?Set NAPAY_SOURCE to the Napay checkout under test}" && pwd)
+roles=${NAPAY_E2E_DB_ROLES:-legacy}
+case "$roles" in legacy|restricted) ;; *) echo 'Unknown E2E database role mode.' >&2; exit 1 ;; esac
+if [ "$roles" = restricted ]; then
+    [ -f "$napay_root/docker-compose.roles.yml" ] && [ -f "$napay_root/components/db/DatabaseRoleBootstrap.php" ] || exit 1
+fi
 [ -f "$napay_root/tests/docker/runtime.sh" ] && [ -f "$napay_root/migrations/m261113_150000_create_pos_terminal_openings.php" ] || { echo 'NAPAY_SOURCE lacks the openings backend.' >&2; exit 1; }
 export NAPAY_E2E_NAPAY="$napay_root" NAPAY_E2E_POS="$pos_root"
+export NAPAY_E2E_DB_ROLES="$roles"
 umask 077
 private=$(mktemp -d)
 trap 'rm -rf "$private"' EXIT
 trap 'exit 1' HUP INT TERM
+export NAPAY_E2E_ROLES_SETUP="$private/roles-setup.sh"
+cat > "$NAPAY_E2E_ROLES_SETUP" <<'ROLES'
+openssl rand -hex 32 > "$work/migrator-password"
+openssl rand -hex 32 > "$work/worker-password"
+cat >> "$work/test.env" <<ENV
+NAPAY_DB_MIGRATOR_USERNAME=napay_migrator
+NAPAY_DB_WORKER_USERNAME=napay_worker
+NAPAY_DB_MIGRATOR_SECRET_FILE=$work/migrator-password
+NAPAY_DB_WORKER_SECRET_FILE=$work/worker-password
+ENV
+compose() { docker compose -p "$project" --env-file "$work/test.env" -f "$root/docker-compose.yml" -f "$work/override.yml" -f "$root/docker-compose.roles.yml" "$@"; }
+ROLES
 # Stessa preparazione del runtime Napay (MySQL, bootstrap, web, fixture base); si ferma prima delle suite Napay.
-awk '
+awk -v roles="$roles" '
  /^root=/ { print "root=${NAPAY_E2E_NAPAY:?}"; next }
+ /^docker volume create / && roles == "restricted" { print ". \"$NAPAY_E2E_ROLES_SETUP\"" }
  /^compose run --rm --no-deps --entrypoint php bootstrap .*users-access.php$/ { found=1; exit }
  { print }
  END { if (!found) exit 1 }
@@ -32,7 +51,7 @@ openssl x509 -req -in "$e2e/gateway.csr" -CA "$e2e/ca.pem" -CAkey "$e2e/ca.key" 
 rm -f "$e2e/ca.key" "$e2e/rogue.key" "$e2e/gateway.csr"
 cp "$e2e/ca.pem" "$e2e/pos-secrets/ca.crt"
 cp "$e2e/rogue.pem" "$e2e/rogue-secrets/ca.crt"
-# Chiave client POS già generata per questa esecuzione dal runtime Napay (solo il digest arriva al web Napay).
+# Canary generata dal runtime di test (la copia raw resta nell'env delle fixture, mai nel browser).
 sed -n 's/^NAPAY_TEST_POS_CLIENT_KEY=//p' "$work/test.env" > "$e2e/pos-secrets/client-key"
 cp "$e2e/pos-secrets/client-key" "$e2e/rogue-secrets/client-key"
 openssl rand -hex 24 > "$e2e/password"
@@ -151,8 +170,29 @@ networks:
   e2e:
     internal: true
 YAML
-compose() { docker compose -p "$project" --env-file "$work/test.env" -f "$root/docker-compose.yml" -f "$work/override.yml" -f "$work/e2e.yml" "$@"; }
+compose() {
+    if [ "$NAPAY_E2E_DB_ROLES" = restricted ]; then set -- -f "$root/docker-compose.roles.yml" "$@"; fi
+    docker compose -p "$project" --env-file "$work/test.env" -f "$root/docker-compose.yml" -f "$work/override.yml" -f "$work/e2e.yml" "$@"
+}
 compose up -d --no-build --wait --wait-timeout 240 web gateway pos pos-badca pos-noca
+if [ "$NAPAY_E2E_DB_ROLES" = restricted ]; then
+    compose exec -T web php /var/www/html/docker/bootstrap-check.php
+    compose run --rm --no-deps worker-db-check
+    compose exec -T web php -r '
+    try {
+        require "/var/www/html/config/env.php";
+        if (env("NAPAY_DB_ROLE") !== "web" || is_file("/run/secrets/mysql_root_password") || is_file("/run/secrets/napay_db_migrator_password")) exit(1);
+        $db = new PDO(env_required("DB_DSN"), env_required("DB_USERNAME"), env_required("DB_PASSWORD"), [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        if ($db->query("SELECT CURRENT_USER()")->fetchColumn() !== "napay_test@%") exit(1);
+        foreach (["SELECT COUNT(*) FROM btcpay_merchant_credentials", "DELETE FROM pos_terminal_openings WHERE 1=0", "CREATE TABLE e2e_privilege_escape (id INT)"] as $sql) {
+            $denied = false;
+            try { $db->exec($sql); } catch (PDOException $e) { $denied = in_array((int) ($e->errorInfo[1] ?? 0), [1142, 1143], true); }
+            if (!$denied) exit(1);
+        }
+        echo "PASS: E2E web uses restricted credentials, no DDL, history deletion or BTCPay secrets.\n";
+    } catch (Throwable $e) { fwrite(STDERR,"FAIL: E2E restricted database verification.\n"); exit(1); }
+    '
+fi
 # Fixture Napay da stdin nel web del progetto: la password per esecuzione non passa mai negli argomenti.
 { printf "<?php \$e2ePassword = '%s'; ?>" "$(cat "$e2e/password")"; cat "$pos/tests/integration/napay-fixture.php"; } | compose exec -T web php > "$e2e/fixture.json"
 compose run --rm --no-deps driver tests/integration/openings-e2e.php

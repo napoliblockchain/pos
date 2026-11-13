@@ -21,8 +21,22 @@ NAPAY_SOURCE=/percorso/napay NAPAY_TEST_DATASET=/percorso/dataset-v2 sh tests/do
   CA estranea o assente senza accesso, token Napay assente da HTML, header,
   URL, cookie del browser e log.
 
-Limiti: verifica il trasporto end-to-end, non i ruoli DB separati né il
-deploy (master). Il container POS usa il proprio entrypoint come root per
+## Prova con ruoli DB separati
+
+```sh
+NAPAY_E2E_DB_ROLES=restricted NAPAY_SOURCE=/percorso/napay-integrato \
+  NAPAY_TEST_DATASET=/percorso/dataset-v2 sh tests/docker/openings-e2e.sh
+```
+
+Richiede anche overlay ruoli/bootstrap B1 nel checkout Napay. Genera secret
+migrator/worker privati per esecuzione e applica davvero l'overlay prima
+del bootstrap. Verifica readiness web/worker, identita web e divieto di DDL,
+DELETE dello storico aperture e lettura credenziali BTCPay; poi esegue gli
+stessi 25 casi HTTP/TLS. Nessun privilegio extra assegnato al web per fixture.
+Modalita predefinita `legacy` preservata; valori diversi sono rifiutati.
+Entrambe le modalita restano isolate dalla sandbox condivisa.
+
+Limiti: nessun deploy o pagamento. Il container POS usa il proprio entrypoint come root per
 copiare i secret a `www-data` (come lo stack locale); gateway e driver girano
 con l'uid dell'host, capability rimosse (al gateway resta solo il bind di 443).
 Nessun pagamento.
