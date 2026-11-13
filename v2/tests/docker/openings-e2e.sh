@@ -1,0 +1,161 @@
+#!/bin/sh
+# SIP-021 fase 2: e2e reale POS v2 <-> Napay delle aperture esclusive, stack interamente usa-e-getta:
+# MySQL + bootstrap + Napay web (sorgente NAPAY_SOURCE in sola lettura) + POS v2 (questo repo) + gateway TLS proprio.
+# Nessuna porta host, rete interna dedicata, CA e credenziali casuali per esecuzione (0700/0600), cleanup del solo progetto.
+# Uso: NAPAY_SOURCE=/percorso/napay NAPAY_TEST_DATASET=/percorso/dataset-v2 sh tests/docker/openings-e2e.sh
+set -eu
+pos_root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
+napay_root=$(CDPATH= cd -- "${NAPAY_SOURCE:?Set NAPAY_SOURCE to the Napay checkout under test}" && pwd)
+[ -f "$napay_root/tests/docker/runtime.sh" ] && [ -f "$napay_root/migrations/m261113_150000_create_pos_terminal_openings.php" ] || { echo 'NAPAY_SOURCE lacks the openings backend.' >&2; exit 1; }
+export NAPAY_E2E_NAPAY="$napay_root" NAPAY_E2E_POS="$pos_root"
+umask 077
+private=$(mktemp -d)
+trap 'rm -rf "$private"' EXIT
+trap 'exit 1' HUP INT TERM
+# Stessa preparazione del runtime Napay (MySQL, bootstrap, web, fixture base); si ferma prima delle suite Napay.
+awk '
+ /^root=/ { print "root=${NAPAY_E2E_NAPAY:?}"; next }
+ /^compose run --rm --no-deps --entrypoint php bootstrap .*users-access.php$/ { found=1; exit }
+ { print }
+ END { if (!found) exit 1 }
+' "$napay_root/tests/docker/runtime.sh" > "$private/runtime.sh"
+cat >> "$private/runtime.sh" <<'E2E'
+pos=${NAPAY_E2E_POS:?}
+e2e=$work/e2e
+mkdir -m 700 "$e2e" "$e2e/gateway" "$e2e/pos-secrets" "$e2e/rogue-secrets"
+# CA privata del test e certificato del gateway; una seconda CA estranea per il POS "badca".
+openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj '/CN=napay e2e test CA' -keyout "$e2e/ca.key" -out "$e2e/ca.pem" >/dev/null 2>&1
+openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj '/CN=napay e2e rogue CA' -keyout "$e2e/rogue.key" -out "$e2e/rogue.pem" >/dev/null 2>&1
+openssl req -newkey rsa:2048 -nodes -subj '/CN=napay e2e gateway' -keyout "$e2e/gateway/server.key" -out "$e2e/gateway.csr" >/dev/null 2>&1
+printf 'subjectAltName=DNS:napay.local,DNS:pos.local,DNS:pos-badca.local,DNS:pos-noca.local\n' > "$e2e/gateway.ext"
+openssl x509 -req -in "$e2e/gateway.csr" -CA "$e2e/ca.pem" -CAkey "$e2e/ca.key" -CAcreateserial -days 1 -extfile "$e2e/gateway.ext" -out "$e2e/gateway/server.pem" >/dev/null 2>&1
+rm -f "$e2e/ca.key" "$e2e/rogue.key" "$e2e/gateway.csr"
+cp "$e2e/ca.pem" "$e2e/pos-secrets/ca.crt"
+cp "$e2e/rogue.pem" "$e2e/rogue-secrets/ca.crt"
+# Chiave client POS già generata per questa esecuzione dal runtime Napay (solo il digest arriva al web Napay).
+sed -n 's/^NAPAY_TEST_POS_CLIENT_KEY=//p' "$work/test.env" > "$e2e/pos-secrets/client-key"
+cp "$e2e/pos-secrets/client-key" "$e2e/rogue-secrets/client-key"
+openssl rand -hex 24 > "$e2e/password"
+cookie_key=$(openssl rand -hex 24)
+printf 'POS_MODE=preview\nCOOKIE_VALIDATION_KEY=%s\n' "$cookie_key" > "$e2e/pos.env"
+unset cookie_key
+cat > "$e2e/Caddyfile" <<'CADDY'
+{
+	admin off
+	auto_https off
+	persist_config off
+}
+https://napay.local:443 {
+	tls /certs/server.pem /certs/server.key
+	reverse_proxy web:80
+}
+https://pos.local:443 {
+	tls /certs/server.pem /certs/server.key
+	reverse_proxy pos:80
+}
+https://pos-badca.local:443 {
+	tls /certs/server.pem /certs/server.key
+	reverse_proxy pos-badca:80
+}
+https://pos-noca.local:443 {
+	tls /certs/server.pem /certs/server.key
+	reverse_proxy pos-noca:80
+}
+CADDY
+uid=$(id -u); gid=$(id -g)
+cat > "$work/e2e.yml" <<YAML
+x-pos: &pos
+  image: napay/pos-v2:dev
+  env_file: $e2e/pos.env
+  environment: &pos-env
+    NAPAY_API_BASE_URL: https://napay.local/api/pos/v1
+    NAPAY_POS_CLIENT_KEY_FILE: /run/pos-secrets/client-key
+    NAPAY_CA_FILE: /run/pos-secrets/ca.crt
+  read_only: true
+  security_opt: [no-new-privileges:true]
+  tmpfs: [/tmp, /var/run/apache2, /var/lock/apache2, /run/pos-secrets, /srv/pos/runtime]
+  networks: [e2e]
+  healthcheck:
+    test: [CMD, curl, --fail, --silent, http://127.0.0.1/health]
+    interval: 3s
+    timeout: 3s
+    retries: 20
+services:
+  web:
+    networks: [database, e2e]
+  gateway:
+    image: caddy:2.8.4-alpine
+    user: "$uid:$gid"
+    read_only: true
+    cap_drop: [ALL]
+    # il binario caddy dell'immagine ha la file capability di bind: va lasciata nel bounding set
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: [no-new-privileges:true]
+    sysctls: [net.ipv4.ip_unprivileged_port_start=443]
+    environment: {XDG_DATA_HOME: /tmp/data, XDG_CONFIG_HOME: /tmp/config}
+    tmpfs: ["/tmp:mode=1777"]
+    volumes:
+      - $e2e/Caddyfile:/etc/caddy/Caddyfile:ro
+      - $e2e/gateway:/certs:ro
+    networks:
+      e2e:
+        aliases: [napay.local, pos.local, pos-badca.local, pos-noca.local]
+    healthcheck:
+      test: [CMD, nc, -z, 127.0.0.1, "443"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+  pos:
+    <<: *pos
+    volumes: &pos-src
+      - $pos/config:/srv/pos/config:ro
+      - $pos/controllers:/srv/pos/controllers:ro
+      - $pos/models:/srv/pos/models:ro
+      - $pos/components:/srv/pos/components:ro
+      - $pos/views:/srv/pos/views:ro
+      - $pos/web:/srv/pos/web:ro
+      - $e2e/pos-secrets/client-key:/run/secrets/napay_client_key:ro
+      - $e2e/pos-secrets/ca.crt:/run/secrets/napay_ca:ro
+  pos-badca:
+    <<: *pos
+    volumes:
+      - $pos/config:/srv/pos/config:ro
+      - $pos/controllers:/srv/pos/controllers:ro
+      - $pos/models:/srv/pos/models:ro
+      - $pos/components:/srv/pos/components:ro
+      - $pos/views:/srv/pos/views:ro
+      - $pos/web:/srv/pos/web:ro
+      - $e2e/rogue-secrets/client-key:/run/secrets/napay_client_key:ro
+      - $e2e/rogue-secrets/ca.crt:/run/secrets/napay_ca:ro
+  pos-noca:
+    <<: *pos
+    environment:
+      <<: *pos-env
+      NAPAY_CA_FILE: /run/pos-secrets/absent.crt
+    volumes: *pos-src
+  driver:
+    image: napay/pos-v2:dev
+    user: "$uid:$gid"
+    entrypoint: [php]
+    working_dir: /srv/pos
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: ["/tmp:mode=1777"]
+    volumes:
+      - $pos/tests:/srv/pos/tests:ro
+      - $e2e:/e2e:ro
+    networks: [e2e]
+    profiles: [driver]
+networks:
+  e2e:
+    internal: true
+YAML
+compose() { docker compose -p "$project" --env-file "$work/test.env" -f "$root/docker-compose.yml" -f "$work/override.yml" -f "$work/e2e.yml" "$@"; }
+compose up -d --no-build --wait --wait-timeout 240 web gateway pos pos-badca pos-noca
+# Fixture Napay da stdin nel web del progetto: la password per esecuzione non passa mai negli argomenti.
+{ printf "<?php \$e2ePassword = '%s'; ?>" "$(cat "$e2e/password")"; cat "$pos/tests/integration/napay-fixture.php"; } | compose exec -T web php > "$e2e/fixture.json"
+compose run --rm --no-deps driver tests/integration/openings-e2e.php
+compose logs --no-color web gateway pos pos-badca pos-noca | compose run --rm -T --no-deps driver tests/integration/openings-e2e.php --logs
+E2E
+sh "$private/runtime.sh"
