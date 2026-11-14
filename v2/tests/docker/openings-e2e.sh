@@ -3,17 +3,25 @@
 # MySQL + bootstrap + Napay web (sorgente NAPAY_SOURCE in sola lettura) + POS v2 (questo repo) + gateway TLS proprio.
 # Nessuna porta host, rete interna dedicata, CA e credenziali casuali per esecuzione (0700/0600), cleanup del solo progetto.
 # Uso: NAPAY_SOURCE=/percorso/napay NAPAY_TEST_DATASET=/percorso/dataset-v2 sh tests/docker/openings-e2e.sh
+# NAPAY_E2E_SUITE=payments (SIP-021 fase 3): aggiunge chain Besu usa-e-getta e transfer reali del pagatore di test;
+# richiede le immagini locali napay/chain-tools:dev e hyperledger/besu:26.9.0.
 set -eu
 pos_root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 napay_root=$(CDPATH= cd -- "${NAPAY_SOURCE:?Set NAPAY_SOURCE to the Napay checkout under test}" && pwd)
 roles=${NAPAY_E2E_DB_ROLES:-legacy}
 case "$roles" in legacy|restricted) ;; *) echo 'Unknown E2E database role mode.' >&2; exit 1 ;; esac
+suite=${NAPAY_E2E_SUITE:-openings}
+case "$suite" in openings|payments) ;; *) echo 'Unknown E2E suite.' >&2; exit 1 ;; esac
+if [ "$suite" = payments ]; then
+    [ -f "$napay_root/tests/application/tts-pay.mjs" ] || { echo 'NAPAY_SOURCE lacks the TTS payments backend.' >&2; exit 1; }
+    docker image inspect napay/chain-tools:dev hyperledger/besu:26.9.0 >/dev/null
+fi
 if [ "$roles" = restricted ]; then
     [ -f "$napay_root/docker-compose.roles.yml" ] && [ -f "$napay_root/components/db/DatabaseRoleBootstrap.php" ] || exit 1
 fi
 [ -f "$napay_root/tests/docker/runtime.sh" ] && [ -f "$napay_root/migrations/m261113_150000_create_pos_terminal_openings.php" ] || { echo 'NAPAY_SOURCE lacks the openings backend.' >&2; exit 1; }
 export NAPAY_E2E_NAPAY="$napay_root" NAPAY_E2E_POS="$pos_root"
-export NAPAY_E2E_DB_ROLES="$roles"
+export NAPAY_E2E_DB_ROLES="$roles" NAPAY_E2E_SUITE="$suite"
 umask 077
 private=$(mktemp -d)
 trap 'rm -rf "$private"' EXIT
@@ -41,7 +49,7 @@ awk -v roles="$roles" '
 cat >> "$private/runtime.sh" <<'E2E'
 pos=${NAPAY_E2E_POS:?}
 e2e=$work/e2e
-mkdir -m 700 "$e2e" "$e2e/gateway" "$e2e/pos-secrets" "$e2e/rogue-secrets"
+mkdir -m 700 "$e2e" "$e2e/gateway" "$e2e/pos-secrets" "$e2e/rogue-secrets" "$e2e/state"
 # CA privata del test e certificato del gateway; una seconda CA estranea per il POS "badca".
 openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj '/CN=napay e2e test CA' -keyout "$e2e/ca.key" -out "$e2e/ca.pem" >/dev/null 2>&1
 openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj '/CN=napay e2e rogue CA' -keyout "$e2e/rogue.key" -out "$e2e/rogue.pem" >/dev/null 2>&1
@@ -133,6 +141,9 @@ services:
       - $pos/components:/srv/pos/components:ro
       - $pos/views:/srv/pos/views:ro
       - $pos/web:/srv/pos/web:ro
+      - $pos/messages:/srv/pos/messages:ro
+      - $pos/fonts:/srv/pos/fonts:ro
+      - $pos/vendor:/srv/pos/vendor:ro
       - $e2e/pos-secrets/client-key:/run/secrets/napay_client_key:ro
       - $e2e/pos-secrets/ca.crt:/run/secrets/napay_ca:ro
   pos-badca:
@@ -144,6 +155,9 @@ services:
       - $pos/components:/srv/pos/components:ro
       - $pos/views:/srv/pos/views:ro
       - $pos/web:/srv/pos/web:ro
+      - $pos/messages:/srv/pos/messages:ro
+      - $pos/fonts:/srv/pos/fonts:ro
+      - $pos/vendor:/srv/pos/vendor:ro
       - $e2e/rogue-secrets/client-key:/run/secrets/napay_client_key:ro
       - $e2e/rogue-secrets/ca.crt:/run/secrets/napay_ca:ro
   pos-noca:
@@ -164,6 +178,7 @@ services:
     volumes:
       - $pos/tests:/srv/pos/tests:ro
       - $e2e:/e2e:ro
+      - $e2e/state:/state
     networks: [e2e]
     profiles: [driver]
 networks:
@@ -172,8 +187,45 @@ networks:
 YAML
 compose() {
     if [ "$NAPAY_E2E_DB_ROLES" = restricted ]; then set -- -f "$root/docker-compose.roles.yml" "$@"; fi
+    if [ "$NAPAY_E2E_SUITE" = payments ]; then set -- -f "$work/chain.yml" "$@"; fi
     docker compose -p "$project" --env-file "$work/test.env" -f "$root/docker-compose.yml" -f "$work/override.yml" -f "$work/e2e.yml" "$@"
 }
+if [ "$NAPAY_E2E_SUITE" = payments ]; then
+    # SIP-021 fase 3: chain di test sulla rete interna e2e; volume e container rimossi dal cleanup del progetto.
+    cat > "$work/chain.yml" <<YAML
+services:
+  tts-chain-init:
+    image: napay/chain-tools:dev
+    command: [node, init.mjs]
+    environment: {CHAIN_ID: "2118"}
+    volumes: [tts_chain:/data]
+    networks: [e2e]
+  tts-besu:
+    image: hyperledger/besu:26.9.0
+    user: "1000:1000"
+    command: [--data-path=/data/db, --genesis-file=/data/genesis.json, --node-private-key-file=/data/key, --rpc-http-enabled,
+      --rpc-http-host=0.0.0.0, --rpc-http-api=ETH,NET,WEB3, --host-allowlist=*, --min-gas-price=0,
+      --discovery-enabled=false, --sync-mode=FULL, --sync-min-peers=0]
+    volumes: [tts_chain:/data]
+    networks: [e2e]
+    healthcheck:
+      test: [CMD, bash, -c, "exec 3<>/dev/tcp/127.0.0.1/8545"]
+      interval: 3s
+      retries: 40
+  tts-chain-tools:
+    image: napay/chain-tools:dev
+    environment: {CHAIN_RPC_URL: "http://tts-besu:8545", CHAIN_ID: "2118"}
+    volumes: [tts_chain:/data, $root/tests/application/tts-pay.mjs:/tools/tts-pay.mjs:ro]
+    networks: [e2e]
+volumes:
+  tts_chain:
+YAML
+    compose run --rm --no-deps tts-chain-init >/dev/null
+    compose up -d --no-deps --wait --wait-timeout 180 tts-besu
+    compose run --rm --no-deps tts-chain-tools node deploy.mjs >/dev/null
+    token=$(compose run --rm --no-deps tts-chain-tools node -e 'console.log(JSON.parse(require("fs").readFileSync("/data/tts.json","utf8")).address)')
+    printf 'TTS_RPC_URL=http://tts-besu:8545\nTTS_CHAIN_ID=2118\nTTS_TOKEN_ADDRESS=%s\n' "$token" >> "$work/test.env"
+fi
 compose up -d --no-build --wait --wait-timeout 240 web gateway pos pos-badca pos-noca
 if [ "$NAPAY_E2E_DB_ROLES" = restricted ]; then
     compose exec -T web php /var/www/html/docker/bootstrap-check.php
@@ -194,8 +246,29 @@ if [ "$NAPAY_E2E_DB_ROLES" = restricted ]; then
     '
 fi
 # Fixture Napay da stdin nel web del progetto: la password per esecuzione non passa mai negli argomenti.
-{ printf "<?php \$e2ePassword = '%s'; ?>" "$(cat "$e2e/password")"; cat "$pos/tests/integration/napay-fixture.php"; } | compose exec -T web php > "$e2e/fixture.json"
-compose run --rm --no-deps driver tests/integration/openings-e2e.php
-compose logs --no-color web gateway pos pos-badca pos-noca | compose run --rm -T --no-deps driver tests/integration/openings-e2e.php --logs
+wallet=""
+if [ "$NAPAY_E2E_SUITE" = payments ]; then wallet="0x$(openssl rand -hex 20)"; fi
+{ printf "<?php \$e2ePassword = '%s'; \$e2eWallet = '%s'; ?>" "$(cat "$e2e/password")" "$wallet"; cat "$pos/tests/integration/napay-fixture.php"; } | compose exec -T web php > "$e2e/fixture.json"
+if [ "$NAPAY_E2E_SUITE" = openings ]; then
+    compose run --rm --no-deps driver tests/integration/openings-e2e.php
+    compose logs --no-color web gateway pos pos-badca pos-noca | compose run --rm -T --no-deps driver tests/integration/openings-e2e.php --logs
+else
+    # Fase 1 dal browser simulato: richiesta creata nel POS. Poi transfer reale con il riferimento letto da Napay.
+    compose run --rm --no-deps driver tests/integration/payments-e2e.php create
+    compose exec -T web php -r '
+        require "/var/www/html/config/env.php";
+        $db = new PDO(env_required("DB_DSN"), env_required("DB_USERNAME"), env_required("DB_PASSWORD"), [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        $plan = [];
+        foreach (explode(",", trim(stream_get_contents(STDIN))) as $id) {
+            $row = $db->query("SELECT to_address, amount_cents, reference FROM pos_tts_payments WHERE public_id=" . $db->quote($id))->fetch(PDO::FETCH_ASSOC);
+            if ($row === false) exit(1);
+            $plan[] = ["label" => $id, "to" => $row["to_address"], "cents" => (int) $row["amount_cents"], "ref" => $row["reference"]];
+        }
+        echo json_encode($plan);
+    ' < "$e2e/state/pay-ids" \
+        | compose run --rm --no-deps -T tts-chain-tools node tts-pay.mjs > "$e2e/state/paid.json"
+    compose run --rm --no-deps driver tests/integration/payments-e2e.php verify
+    compose logs --no-color web gateway pos | compose run --rm -T --no-deps driver tests/integration/payments-e2e.php --logs
+fi
 E2E
 sh "$private/runtime.sh"

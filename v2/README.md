@@ -14,11 +14,16 @@ Flusso login approvato: email/password nel POS, verifica API Napay e token
 soltanto sul server POS. Login reale attivo tramite `POST /api/pos/v1/sessions`;
 nessuna copia del database utenti o degli hash password.
 
-Questa e la **base navigabile di migrazione**, non un POS pronto a incassare.
+Questa e la **base navigabile di migrazione**, non un POS per incassi reali.
 Tastierino, validazione importi lato server, layout mobile/desktop e protezioni
-HTTP attivi. Il pulsante verifica solo l'importo; non crea fatture, QR,
-transazioni, saldo o ricevute. Importi EUR in centesimi interi, intervallo della
-sola anteprima 0,01-99.999,99: non definisce limiti di pagamento del backend.
+HTTP attivi. **Incasso TTS (SIP-021 fase 3, solo chain di test):** il pulsante
+"Incassa TTS" crea la richiesta in Napay dall'apertura corrente; la pagina mostra
+QR (formato del wallet, con riferimento), importo, scadenza e wallet del merchant
+scelto da Napay; il browser interroga lo stato ogni 3 s tramite il server POS;
+a pagamento confermato la ricevuta e un PDF A7 (tc-lib-pdf). Importi in centesimi
+interi, da 0,01 a 1000,00 TTS per richiesta (stesso limite del backend).
+Contratto: [PAGAMENTO-TTS](../../sip/SIP-021/PAGAMENTO-TTS-CONTRATTO.md) e
+[porting dal POS legacy](../../sip/SIP-021/POS-CLIENT-PAGAMENTO.md).
 
 **Apertura esclusiva (SIP-021 fase 2, 2026-11-13):** dal catalogo l'operatore
 apre un POS; Napay garantisce una sola apertura per terminale (409 se occupato,
@@ -32,7 +37,7 @@ ogni 30 s (solo informativo), chiusura esplicita e al logout; lo sblocco forzato
 smartphone, manifest installabile, service worker che tiene in cache solo il
 guscio statico e mostra `offline.html` senza rete (mai pagine con dati operatore).
 
-**Non implementati:** incassi BTC/TTS, polling stato, storico e ricevute.
+**Non implementati:** incassi BTC, storico incassi (serve un'API di lista in Napay).
 
 Decisioni concordate il 2026-11-11: login utente base, POS autorizzati per piu
 negozi, apertura esclusiva e sblocco admin/merchant; wallet unico per merchant.

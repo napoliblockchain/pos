@@ -40,3 +40,18 @@ Limiti: nessun deploy o pagamento. Il container POS usa il proprio entrypoint co
 copiare i secret a `www-data` (come lo stack locale); gateway e driver girano
 con l'uid dell'host, capability rimosse (al gateway resta solo il bind di 443).
 Nessun pagamento.
+
+## Pagamenti TTS (SIP-021 fase 3)
+
+`NAPAY_E2E_SUITE=payments` aggiunge alla stessa rete interna una chain Besu
+usa-e-getta (`napay/chain-tools:dev`, `hyperledger/besu:26.9.0`), configura il
+backend con `TTS_*` e imposta il wallet del merchant nella fixture. Il driver
+incassa dal tastierino, legge da Napay il riferimento della richiesta, il runner
+esegue un transfer reale con il pagatore di test di Napay (`tests/application/tts-pay.mjs`),
+poi il driver verifica polling, pagina pagata, ricevuta PDF, annullamento e
+assenza di segreti nel browser e nei log.
+
+```sh
+NAPAY_E2E_SUITE=payments NAPAY_E2E_DB_ROLES=restricted NAPAY_SOURCE=/percorso/napay-integrato \
+NAPAY_TEST_DATASET=/percorso/dataset-v2 sh tests/docker/openings-e2e.sh
+```

@@ -1,7 +1,9 @@
 <?php
-// Fixture Napay per l'e2e aperture: eseguita nel container web del progetto usa-e-getta, letta da stdin.
-// Il runner antepone $e2ePassword (casuale per esecuzione). Stampa solo dati pubblici in JSON, mai la password.
+// Fixture Napay per l'e2e aperture e pagamenti: eseguita nel container web del progetto usa-e-getta, letta da stdin.
+// Il runner antepone $e2ePassword (casuale per esecuzione) e $e2eWallet (indirizzo TTS del merchant, vuoto senza
+// pagamenti). Stampa solo dati pubblici in JSON, mai la password.
 if (PHP_SAPI !== 'cli' || !isset($e2ePassword) || !preg_match('/^[0-9a-f]{48}$/D', $e2ePassword)) exit(1);
+if (!isset($e2eWallet) || ($e2eWallet !== '' && !preg_match('/^0x[0-9a-f]{40}$/D', $e2eWallet))) exit(1);
 $root = '/var/www/html';
 require $root . '/config/env.php';
 if (env('NAPAY_TEST_DB_CONFIRM') !== 'isolated-fixture' || env('DB_DATABASE') !== 'napay_test_runtime') exit(1);
@@ -41,5 +43,9 @@ foreach (['E2E Cassa 1', 'E2E Cassa 2'] as $name) {
     $terminal->is_enabled = 1;
     if (!$terminal->save()) exit(1);
 }
+if ($e2eWallet !== '') {
+    $db->createCommand()->insert('merchant_tts_wallets', ['merchant_id' => $merchant, 'address' => $e2eWallet, 'updated_by' => $manager, 'updated_at' => $now])->execute();
+}
 $transaction->commit();
-echo json_encode(['manager' => 'merchant@example.invalid', 'operators' => $operators, 'store' => 'E2E Negozio', 'terminals' => ['E2E Cassa 1', 'E2E Cassa 2']]), "\n";
+echo json_encode(['manager' => 'merchant@example.invalid', 'operators' => $operators, 'store' => 'E2E Negozio', 'terminals' => ['E2E Cassa 1', 'E2E Cassa 2'],
+    'wallet' => $e2eWallet]), "\n";
