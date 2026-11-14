@@ -15,6 +15,8 @@ COPY controllers ./controllers
 COPY models ./models
 COPY components ./components
 COPY views ./views
+COPY messages ./messages
+COPY fonts ./fonts
 COPY web ./web
 COPY tests ./tests
 COPY docker/apache.conf /etc/apache2/sites-available/000-default.conf
