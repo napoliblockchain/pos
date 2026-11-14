@@ -54,6 +54,10 @@ button:active,.button:active{background:#e3e8d6}
 .payment-address{font:12px 'Courier New',monospace;overflow-wrap:anywhere;text-align:center;color:var(--muted)}
 .payment form{margin:0 0 8px}
 .till-foot.single{grid-template-columns:1fr}
+.history-list{list-style:none;margin:0 0 12px;padding:0}
+.history-list li{display:grid;grid-template-columns:auto 1fr auto auto;gap:8px;align-items:center;padding:10px 12px;border-radius:8px;background:var(--ok);margin-bottom:6px;font:14px 'Courier New',monospace}
+.history-amount{font-weight:bold;text-align:right}
+.history-list a{color:inherit;font-weight:bold}
 footer{padding:8px 16px 12px;color:var(--muted);font:11px 'Courier New',monospace;text-align:center}
 :focus-visible{outline:3px solid #57743e;outline-offset:3px}
 @media(min-width:900px){

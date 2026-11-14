@@ -1,6 +1,6 @@
 <?php
 // SIP-021 fase 3, e2e reale: browser simulato con cURL -> gateway TLS -> POS v2 -> API Napay -> chain Besu usa-e-getta.
-// Fasi: create (incasso dal tastierino, QR) -> transfer reale dal runner -> verify (stato, ricevuta, annullamento).
+// Fasi: create (incasso dal tastierino, QR) -> transfer reale dal runner -> verify (stato, ricevuta, annullamento, storico).
 // I cookie jar dei dispositivi restano in /state tra le fasi. Modalità --logs: nessun segreto nei log dei container.
 if (PHP_SAPI !== 'cli') exit(1);
 $e2e = '/e2e'; $state = '/state';
@@ -120,6 +120,13 @@ check($receipt['status'] === 200 && str_starts_with($receipt['body'], '%PDF-') &
     && preg_match('/Cache-Control:\s*no-store/i', $receipt['headers']), 'A7 PDF receipt served, not cacheable');
 check($a->request('/payment/receipt?id=' . $ids['cancelled'])['status'] === 404, 'No receipt for the cancelled payment');
 check(str_contains($a->request('/payment/view?id=' . $ids['cancelled'])['body'], 'Annullato'), 'Cancelled payment stays cancelled');
+$history = $a->request('/payment/history');
+check($history['status'] === 200 && str_contains($history['body'], 'Storico incassi') && str_contains($history['body'], '12.34 TTS') && str_contains($history['body'], '3.00 TTS')
+    && str_contains($history['body'], 'Pagato') && str_contains($history['body'], 'Annullato') && substr_count(html_entity_decode($history['body']), '/payment/receipt?id=') === 1
+    && !str_contains(strtolower($history['body']), $fixture['wallet']), 'History page: both payments of the terminal, one receipt link, no destination address');
+check(str_contains(html_entity_decode($history['body']), '/payment/receipt?id=' . $ids['paid']) && str_starts_with($a->request('/payment/receipt?id=' . $ids['paid'])['body'], '%PDF-'),
+    'Receipt reachable from the history');
+check((new Device('https://pos.local', $state . '/device-c.jar'))->request('/payment/history')['status'] === 302, 'History needs an operator with an open POS');
 $browser = implode("\n", $a->seen) . $a->cookies();
 check(!preg_match('/napos_[A-Za-z0-9_-]{43}/', $browser) && !str_contains($browser, $clientKey), 'No Napay bearer or client key in POS pages, headers or cookies');
 echo "PASS $checks POS payments e2e verify checks\n";

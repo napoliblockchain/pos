@@ -20,7 +20,9 @@ HTTP attivi. **Incasso TTS (SIP-021 fase 3, solo chain di test):** il pulsante
 "Incassa TTS" crea la richiesta in Napay dall'apertura corrente; la pagina mostra
 QR (formato del wallet, con riferimento), importo, scadenza e wallet del merchant
 scelto da Napay; il browser interroga lo stato ogni 3 s tramite il server POS;
-a pagamento confermato la ricevuta e un PDF A7 (tc-lib-pdf). Importi in centesimi
+a pagamento confermato la ricevuta e un PDF A7 (tc-lib-pdf). "Storico incassi"
+mostra gli ultimi 50 incassi del terminale negli ultimi 30 giorni (anche di
+aperture precedenti), con ricevuta per quelli pagati. Importi in centesimi
 interi, da 0,01 a 1000,00 TTS per richiesta (stesso limite del backend).
 Contratto: [PAGAMENTO-TTS](../../sip/SIP-021/PAGAMENTO-TTS-CONTRATTO.md) e
 [porting dal POS legacy](../../sip/SIP-021/POS-CLIENT-PAGAMENTO.md).
@@ -37,7 +39,7 @@ ogni 30 s (solo informativo), chiusura esplicita e al logout; lo sblocco forzato
 smartphone, manifest installabile, service worker che tiene in cache solo il
 guscio statico e mostra `offline.html` senza rete (mai pagine con dati operatore).
 
-**Non implementati:** incassi BTC, storico incassi (serve un'API di lista in Napay).
+**Non implementati:** incassi BTC.
 
 Decisioni concordate il 2026-11-11: login utente base, POS autorizzati per piu
 negozi, apertura esclusiva e sblocco admin/merchant; wallet unico per merchant.

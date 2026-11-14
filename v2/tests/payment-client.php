@@ -76,6 +76,24 @@ try {
         && end($client->sent)[2] === json_encode(['instance_id' => $opening['instance_id'], 'generation' => '3']), 'Cancel sends the opening proof');
     $client->responses = [$error('payment_not_pending', 409)];
     $check($client->cancelPayment($token, $opening, $pending['id']) === ['ok' => false, 'error' => 'payment_not_pending'], 'Cancel of a closed payment: payment_not_pending');
+    // --- storico
+    $other = ['id' => $uuid(), 'amount' => '5.00', 'currency' => 'TTS', 'state' => 'paid', 'created_at' => time() - 600, 'paid_at' => time() - 590, 'tx_hash' => '0x' . str_repeat('cd', 32), 'own' => false];
+    $mine = ['id' => $pending['id'], 'amount' => '12.34', 'currency' => 'TTS', 'state' => 'pending', 'created_at' => time(), 'paid_at' => null, 'tx_hash' => null, 'own' => true];
+    $client->responses = [$json(['payments' => [$mine, $other]], 200)];
+    $check($client->paymentHistory($token, $opening) === ['ok' => true, 'payments' => [$mine, $other]] && end($client->sent)[1] === 'GET' && end($client->sent)[2] === ''
+        && end($client->sent)[0] === $base . '/openings/' . $opening['id'] . '/payments', 'History: GET on the opening, list returned');
+    foreach ([['qr' => 'x'], ['to_address' => $address], ['own' => 1], ['state' => 'refunded'], ['tx_hash' => null], ['amount' => '5'], ['created_at' => '1']] as $bad) {
+        $client->responses = [$json(['payments' => [$mine, array_merge($other, $bad)]], 200)];
+        $check($client->paymentHistory($token, $opening) === $unavailable, 'Malformed history item refused: ' . json_encode(array_keys($bad)));
+    }
+    foreach ([['payments' => array_fill(0, 51, $other)], ['payments' => [$other], 'next' => 1], ['payments' => ['a' => $other]], [$other]] as $bad) {
+        $client->responses = [$json($bad, 200)];
+        $check($client->paymentHistory($token, $opening) === $unavailable, 'Malformed history list refused');
+    }
+    $client->responses = [$error('opening_invalid', 409)];
+    $check($client->paymentHistory($token, $opening) === ['ok' => false, 'error' => 'opening_invalid'], 'History error mapped');
+    $calls = $client->calls;
+    $check($client->paymentHistory($token, ['id' => 'x'] + $opening) === $unavailable && $client->calls === $calls, 'History without a valid opening: nothing sent');
 
     // --- controller: pagamenti solo dalla sessione server, browser senza token
     $app = new yii\web\Application(['id' => 'pos-payment-test', 'basePath' => dirname(__DIR__), 'language' => 'it-IT', 'components' => [
@@ -131,6 +149,27 @@ try {
     $html = $controller->actionCreate();
     $check($app->response->statusCode === 503 && str_contains($html, 'wallet del merchant'), 'Merchant without wallet: clear message on the till');
     $app->response->statusCode = 200;
+    $client->responses = [$json(['payments' => [$mine, $other, array_replace($other, ['id' => $uuid(), 'state' => 'expired', 'tx_hash' => null, 'paid_at' => null])]], 200)];
+    $html = $controller->actionHistory();
+    $check(is_string($html) && str_contains($html, 'Storico incassi') && str_contains($html, '12.34 TTS') && str_contains($html, 'Scaduto')
+        && substr_count(urldecode($html), 'payment/receipt') === 1
+        && str_contains(urldecode($html), $other['id']) && !str_contains($html, $token), 'History page: states, one receipt link for the paid item, no token');
+    $check(str_contains(urldecode($html), 'id=' . $pending['id']) && str_contains($html, 'Apri'), 'History: own pending payment links to its page');
+    $client->responses = [['status' => 503, 'type' => 'application/json', 'body' => '{}']];
+    $html = $controller->actionHistory();
+    $check($app->response->statusCode === 503 && str_contains($html, 'storico non disponibile'), 'History with Napay unreachable: warning');
+    $app->response->statusCode = 200;
+    $client->responses = [$json(['payments' => [$mine, $other]], 200)];
+    $response = $controller->actionReceipt($other['id']);
+    $pdf = $response->content ?? stream_get_contents($response->stream[0]);
+    $check(str_starts_with((string) $pdf, '%PDF-') && end($client->sent)[0] === $base . '/openings/' . $opening['id'] . '/payments', 'Receipt of a paid payment from the terminal history');
+    $app->response->clear();
+    foreach (['not paid' => $mine['id'], 'not in history' => $uuid()] as $label => $id) {
+        $app->operatorSession->keepOpening($opening, 'Cassa');
+        $client->responses = [$json(['payments' => [$mine, $other]], 200)];
+        if ($label === 'not paid') $app->session->remove('pos.payments');
+        try { $controller->actionReceipt($id); $check(false, 'No receipt from history: ' . $label); } catch (yii\web\NotFoundHttpException $e) { $check(true, 'No receipt from history: ' . $label); }
+    }
     $client->responses = [$error('opening_invalid', 409)];
     $app->request->setBodyParams(['AmountForm' => ['amount' => '5'], 'key' => $uuid()]);
     $check($goes($controller->actionCreate(), 'site/account') && $app->operatorSession->opening() === null && !$app->operatorSession->ownsPayment($pending['id']),

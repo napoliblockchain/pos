@@ -32,5 +32,5 @@ $states = [
 <?= Html::a(Html::encode(Yii::t('app', 'Receipt (PDF)')), ['/payment/receipt', 'id' => $payment['id']], ['class' => 'button primary', 'target' => '_blank', 'rel' => 'noopener']) ?>
 <?php endif ?>
 <?php endif ?>
-<div class="till-foot single"><?= Html::a(Html::encode(Yii::t('app', 'New payment')), ['/site/index'], ['class' => 'button']) ?></div>
+<div class="till-foot"><?= Html::a(Html::encode(Yii::t('app', 'New payment')), ['/site/index'], ['class' => 'button']) ?><?= Html::a(Html::encode(Yii::t('app', 'Payment history')), ['/payment/history'], ['class' => 'button']) ?></div>
 </section>

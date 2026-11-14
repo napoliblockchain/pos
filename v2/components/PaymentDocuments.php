@@ -18,7 +18,7 @@ final class PaymentDocuments
 
     /**
      * Ricevuta A7 di un pagamento concluso.
-     * @param array{label:string, operator:string, amount:string, paid_at:int, id:string, tx_hash:string} $receipt
+     * @param array{label:string, operator:?string, amount:string, paid_at:int, id:string, tx_hash:string} $receipt
      */
     public static function receiptPdf(array $receipt): string
     {
@@ -31,7 +31,7 @@ final class PaymentDocuments
         $rows = [
             ['B', 11, \Yii::t('app', 'Payment receipt')],
             ['', 8, $receipt['label']],
-            ['', 8, \Yii::t('app', 'Operator: {name}', ['name' => $receipt['operator']])],
+            $receipt['operator'] === null ? null : ['', 8, \Yii::t('app', 'Operator: {name}', ['name' => $receipt['operator']])],
             ['', 8, $date],
             ['B', 14, $receipt['amount'] . ' TTS'],
             ['', 7, \Yii::t('app', 'Payment {id}', ['id' => substr($receipt['id'], 0, 8)])],
@@ -40,7 +40,7 @@ final class PaymentDocuments
             ['', 6, \Yii::t('app', 'Test chain only: no real money.')],
         ];
         $y = 6;
-        foreach ($rows as [$style, $size, $text]) {
+        foreach (array_filter($rows) as [$style, $size, $text]) {
             // il font corrente misura il testo: va inserito prima di ogni riga, non solo emesso nel contenuto
             $font = $pdf->font->insert($pdf->pon, 'helvetica', $style, $size);
             $pdf->page->addContent($font['out']);

@@ -153,21 +153,44 @@ class NapayLoginClient extends \yii\base\Component
     {
         if (!self::validOpening($opening) || !self::uuid($idempotencyKey) || $cents < 1 || $cents > 100000) return $this->unavailable();
         return $this->payment('POST', '/openings/' . $opening['id'] . '/payments', $token,
-            ['instance_id' => $opening['instance_id'], 'generation' => $opening['generation'], 'amount_cents' => $cents], $idempotencyKey, [200, 201], $opening['id']);
+            ['instance_id' => $opening['instance_id'], 'generation' => $opening['generation'], 'amount_cents' => $cents], $idempotencyKey, [200, 201], self::paymentOf($opening['id']));
     }
 
     /** Stato di una richiesta della sessione: Napay verifica la chain a ogni lettura. */
     public function viewPayment(string $token, array $opening, string $paymentId): array
     {
         if (!self::validOpening($opening) || !self::uuid($paymentId)) return $this->unavailable();
-        return $this->payment('GET', '/payments/' . $paymentId, $token, null, null, [200], $opening['id'], $paymentId);
+        return $this->payment('GET', '/payments/' . $paymentId, $token, null, null, [200], self::paymentOf($opening['id'], $paymentId));
     }
 
     public function cancelPayment(string $token, array $opening, string $paymentId): array
     {
         if (!self::validOpening($opening) || !self::uuid($paymentId)) return $this->unavailable();
         return $this->payment('POST', '/payments/' . $paymentId . '/cancel', $token,
-            ['instance_id' => $opening['instance_id'], 'generation' => $opening['generation']], null, [200], $opening['id'], $paymentId);
+            ['instance_id' => $opening['instance_id'], 'generation' => $opening['generation']], null, [200], self::paymentOf($opening['id'], $paymentId));
+    }
+
+    /** Storico del terminale dell'apertura corrente (Napay: ultimi 50, più recenti prima). */
+    public function paymentHistory(string $token, array $opening): array
+    {
+        if (!self::validOpening($opening)) return $this->unavailable();
+        return $this->payment('GET', '/openings/' . $opening['id'] . '/payments', $token, null, null, [200],
+            static fn($data) => self::validHistory($data), 'payments');
+    }
+
+    /** Storico come restituito da Napay: solo la lista, voci con otto campi esatti, mai QR o destinatario. */
+    public static function validHistory($data): bool
+    {
+        if (!is_array($data) || array_keys($data) !== ['payments'] || !is_array($data['payments']) || !array_is_list($data['payments']) || count($data['payments']) > 50) return false;
+        foreach ($data['payments'] as $item) {
+            if (!is_array($item) || array_keys($item) !== ['id', 'amount', 'currency', 'state', 'created_at', 'paid_at', 'tx_hash', 'own']) return false;
+            $paid = $item['state'] === 'paid';
+            if (!self::uuid($item['id']) || $item['currency'] !== 'TTS' || !is_string($item['amount']) || preg_match('/^(?:0|[1-9][0-9]{0,3})\.[0-9]{2}$/D', $item['amount']) !== 1
+                || !in_array($item['state'], ['pending', 'paid', 'expired', 'cancelled'], true) || !is_int($item['created_at']) || $item['created_at'] < 1 || !is_bool($item['own'])
+                || !($paid ? is_string($item['tx_hash']) && preg_match('/^0x[0-9a-f]{64}$/D', $item['tx_hash']) === 1 && is_int($item['paid_at'])
+                    : $item['tx_hash'] === null && $item['paid_at'] === null)) return false;
+        }
+        return true;
     }
 
     /** Pagamento come restituito da Napay: dieci campi esatti, QR coerente con indirizzo e importo, esito coerente con lo stato. */
@@ -185,7 +208,14 @@ class NapayLoginClient extends \yii\base\Component
                 : $payment['tx_hash'] === null && $payment['paid_at'] === null);
     }
 
-    private function payment(string $method, string $path, string $token, ?array $body, ?string $idempotencyKey, array $success, string $openingId, ?string $paymentId = null): array
+    /** La risposta deve descrivere un pagamento dell'apertura corrente (e proprio quello richiesto). */
+    private static function paymentOf(string $openingId, ?string $paymentId = null): \Closure
+    {
+        return static fn($data) => self::validPayment($data) && $data['opening_id'] === $openingId && ($paymentId === null || $data['id'] === $paymentId);
+    }
+
+    /** @param callable $valid controllo della risposta di successo; restituita sotto la chiave $field */
+    private function payment(string $method, string $path, string $token, ?array $body, ?string $idempotencyKey, array $success, callable $valid, string $field = 'payment'): array
     {
         try {
             if ($this->baseUrl !== 'https://napay.local/api/pos/v1' || !preg_match('/^napos_[A-Za-z0-9_-]{43}$/D', $token)
@@ -199,9 +229,8 @@ class NapayLoginClient extends \yii\base\Component
             if (!preg_match('~^application/json(?:\s*;|$)~i', $response['type'] ?? '')) return $this->unavailable();
             $data = json_decode($response['body'], true, 4, JSON_THROW_ON_ERROR);
             if (in_array($status, $success, true)) {
-                // La risposta deve descrivere un pagamento dell'apertura corrente (e proprio quello richiesto).
-                if (!self::validPayment($data) || $data['opening_id'] !== $openingId || ($paymentId !== null && $data['id'] !== $paymentId)) return $this->unavailable();
-                return ['ok' => true, 'payment' => $data];
+                if (!$valid($data)) return $this->unavailable();
+                return ['ok' => true, $field => $field === 'payments' ? $data['payments'] : $data];
             }
             $code = is_array($data) ? ($data['error']['code'] ?? null) : null;
             $known = [401 => ['invalid_token'], 404 => ['not_found'], 409 => ['opening_invalid', 'idempotency_conflict', 'payment_not_pending'],

@@ -22,6 +22,7 @@ use app\components\OperatorSession;
 </div>
 <div class="actions"><button type="button" data-clear><?= Html::encode(Yii::t('app', 'Clear')) ?></button><button type="submit" class="primary"><?= Html::encode(Yii::t('app', 'Collect TTS')) ?></button></div>
 <?= Html::endForm() ?>
+<div class="till-foot single"><?= Html::a(Html::encode(Yii::t('app', 'Payment history')), ['/payment/history'], ['class' => 'button']) ?></div>
 <div class="till-foot">
 <?= Html::beginForm(['/site/release'], 'post') ?><button type="submit"><?= Html::encode(Yii::t('app', 'Close POS')) ?></button><?= Html::endForm() ?>
 <?= Html::beginForm(['/site/logout'], 'post') ?><button type="submit"><?= Html::encode(Yii::t('app', 'Log out')) ?></button><?= Html::endForm() ?>

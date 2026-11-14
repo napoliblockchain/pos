@@ -12,14 +12,15 @@ use yii\web\Response;
 
 /**
  * SIP-021 fase 3 (POS-CLIENT-PAGAMENTO): incasso TTS dall'apertura corrente. Il browser parla solo con il server POS:
- * token, apertura e chiave client restano qui. Pagamenti consultabili solo se creati da questa sessione.
+ * token, apertura e chiave client restano qui. Pagamenti consultabili solo se creati da questa sessione; lo storico
+ * del terminale mostra anche quelli delle aperture precedenti, con ricevuta per i pagati.
  */
 class PaymentController extends Controller
 {
     public function behaviors()
     {
         return ['verbs' => ['class' => VerbFilter::class, 'actions' => ['create' => ['POST'], 'view' => ['GET'], 'status' => ['GET'],
-            'cancel' => ['POST'], 'receipt' => ['GET']]]];
+            'cancel' => ['POST'], 'receipt' => ['GET'], 'history' => ['GET']]]];
     }
 
     public function beforeAction($action)
@@ -104,18 +105,34 @@ class PaymentController extends Controller
         return $this->redirect(['view', 'id' => $id]);
     }
 
-    /** Ricevuta PDF A7 solo per pagamenti confermati da Napay. */
+    /** Storico incassi del terminale dell'apertura corrente, come restituito da Napay. */
+    public function actionHistory()
+    {
+        [$operator, $opening] = $this->context();
+        if ($operator === null) return $this->redirect(['/site/login']);
+        if ($opening === null) return $this->redirect(['/site/account']);
+        $result = Yii::$app->napayLogin->paymentHistory($operator['token'], $opening['opening']);
+        if (!$result['ok'] && ($redirect = $this->leave($result['error']))) return $redirect;
+        if (!$result['ok']) Yii::$app->response->statusCode = $result['error'] === 'rate_limited' ? 429 : 503;
+        return $this->render('history', ['payments' => $result['payments'] ?? null, 'label' => $opening['label']]);
+    }
+
+    /**
+     * Ricevuta PDF A7 solo per pagamenti confermati da Napay: di questa sessione (stato riletto) o dallo storico
+     * del terminale (operatore non indicato: può essere un altro).
+     */
     public function actionReceipt(string $id)
     {
         [$operator, $opening] = $this->context();
         if ($operator === null) return $this->redirect(['/site/login']);
         if ($opening === null) return $this->redirect(['/site/account']);
-        $this->requireOwned($id);
-        $result = Yii::$app->napayLogin->viewPayment($operator['token'], $opening['opening'], $id);
-        if (!$result['ok'] && ($redirect = $this->leave($result['error'], true))) return $redirect;
-        if (!$result['ok'] || $result['payment']['state'] !== 'paid') throw new NotFoundHttpException(Yii::t('app', 'Receipt not available.'));
-        $payment = $result['payment'];
-        $pdf = PaymentDocuments::receiptPdf(['label' => $opening['label'], 'operator' => $operator['name'], 'amount' => $payment['amount'],
+        $owned = Yii::$app->operatorSession->ownsPayment($id);
+        $result = $owned ? Yii::$app->napayLogin->viewPayment($operator['token'], $opening['opening'], $id)
+            : Yii::$app->napayLogin->paymentHistory($operator['token'], $opening['opening']);
+        if (!$result['ok'] && ($redirect = $this->leave($result['error'], $owned))) return $redirect;
+        $payment = $owned ? ($result['payment'] ?? null) : (array_column($result['payments'] ?? [], null, 'id')[$id] ?? null);
+        if ($payment === null || $payment['state'] !== 'paid') throw new NotFoundHttpException(Yii::t('app', 'Receipt not available.'));
+        $pdf = PaymentDocuments::receiptPdf(['label' => $opening['label'], 'operator' => $owned ? $operator['name'] : null, 'amount' => $payment['amount'],
             'paid_at' => $payment['paid_at'], 'id' => $payment['id'], 'tx_hash' => $payment['tx_hash']]);
         return Yii::$app->response->sendContentAsFile($pdf, 'ricevuta-' . substr($payment['id'], 0, 8) . '.pdf',
             ['mimeType' => 'application/pdf', 'inline' => true]);
