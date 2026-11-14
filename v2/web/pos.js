@@ -27,10 +27,36 @@ if (till) {
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') beat(); });
 }
 
+// SIP-021 fase 3: stato del pagamento in attesa, ogni 3 s solo a pagina visibile; ricarica su esito finale.
+const payment = document.querySelector('[data-payment-status]');
+if (payment) {
+  const expires = Number(payment.dataset.expires) * 1000;
+  const countdown = payment.querySelector('[data-countdown]');
+  let timer = null;
+  const tick = () => {
+    if (!countdown) return;
+    const left = Math.max(0, Math.round((expires - Date.now()) / 1000));
+    countdown.textContent = ' (' + Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0') + ')';
+  };
+  const poll = () => {
+    if (document.visibilityState !== 'visible') return;
+    fetch(payment.dataset.paymentStatus, { credentials: 'same-origin', cache: 'no-store', headers: { 'Accept': 'application/json' } })
+      .then(response => response.ok ? response.json() : { status: 'retry' })
+      .then(result => {
+        if (['paid', 'expired', 'cancelled'].includes(result.status)) { clearInterval(timer); window.location.reload(); }
+        if (result.status === 'closed') window.location.assign('/site/account');
+        if (result.status === 'logout') window.location.assign('/site/login');
+      }).catch(() => {});
+  };
+  tick();
+  setInterval(tick, 1000);
+  timer = setInterval(poll, 3000);
+}
+
 const network = document.querySelector('[data-network]');
 const showNetwork = () => {
   if (!network) return;
-  network.textContent = navigator.onLine ? 'ONLINE' : 'OFFLINE';
+  network.textContent = navigator.onLine ? network.dataset.online : network.dataset.offline;
   network.classList.toggle('offline', !navigator.onLine);
 };
 window.addEventListener('online', showNetwork);

@@ -41,7 +41,7 @@ class NapayLoginClient extends \yii\base\Component
             if (!$expiry || $expiry->format('Y-m-d\TH:i:s\Z') !== $data['expires_at']
                 || $expiry->getTimestamp() <= time() || $expiry->getTimestamp() > time() + 86400) return $this->unavailable();
             return ['ok' => true, 'session' => ['token' => $data['access_token'], 'expires' => $expiry->getTimestamp(), 'name' => $data['operator']['display_name']]];
-        } catch (\Throwable $error) {
+        } catch (\Throwable) {
             // No exception message, request/response body or credentials enter logs/UI.
             return $this->unavailable();
         }
@@ -63,7 +63,7 @@ class NapayLoginClient extends \yii\base\Component
             $response = $this->request('DELETE', '', trim($key), null, $token);
             if (($response['status'] ?? null) === 204 && ($response['body'] ?? null) === '' && empty($response['setCookie'])) return ['ok' => true];
             return $this->unavailable();
-        } catch (\Throwable $error) {
+        } catch (\Throwable) {
             return $this->unavailable();
         }
     }
@@ -112,7 +112,7 @@ class NapayLoginClient extends \yii\base\Component
                 $items[]=get_object_vars($item); $ids[$item->id]=true;
             }
             return ['ok'=>true,'catalog'=>['items'=>$items,'next_cursor'=>$data->next_cursor]];
-        } catch (\Throwable $error) {
+        } catch (\Throwable) {
             return $this->unavailable();
         }
     }
@@ -142,6 +142,79 @@ class NapayLoginClient extends \yii\base\Component
     {
         return self::validOpening($opening) ? $this->opening('POST', '/openings/' . $opening['id'] . '/release', $token,
             ['instance_id' => $opening['instance_id'], 'generation' => $opening['generation']], null, [204]) : $this->unavailable();
+    }
+
+    /**
+     * SIP-021 fase 3: richiesta di pagamento TTS dall'apertura. Esiti: ok + payment, oppure errore pubblico tra
+     * opening_invalid, idempotency_conflict, payment_unavailable, not_found, invalid_token, validation_failed,
+     * rate_limited (con retry), backend_unavailable.
+     */
+    public function createPayment(string $token, array $opening, int $cents, string $idempotencyKey): array
+    {
+        if (!self::validOpening($opening) || !self::uuid($idempotencyKey) || $cents < 1 || $cents > 100000) return $this->unavailable();
+        return $this->payment('POST', '/openings/' . $opening['id'] . '/payments', $token,
+            ['instance_id' => $opening['instance_id'], 'generation' => $opening['generation'], 'amount_cents' => $cents], $idempotencyKey, [200, 201], $opening['id']);
+    }
+
+    /** Stato di una richiesta della sessione: Napay verifica la chain a ogni lettura. */
+    public function viewPayment(string $token, array $opening, string $paymentId): array
+    {
+        if (!self::validOpening($opening) || !self::uuid($paymentId)) return $this->unavailable();
+        return $this->payment('GET', '/payments/' . $paymentId, $token, null, null, [200], $opening['id'], $paymentId);
+    }
+
+    public function cancelPayment(string $token, array $opening, string $paymentId): array
+    {
+        if (!self::validOpening($opening) || !self::uuid($paymentId)) return $this->unavailable();
+        return $this->payment('POST', '/payments/' . $paymentId . '/cancel', $token,
+            ['instance_id' => $opening['instance_id'], 'generation' => $opening['generation']], null, [200], $opening['id'], $paymentId);
+    }
+
+    /** Pagamento come restituito da Napay: dieci campi esatti, QR coerente con indirizzo e importo, esito coerente con lo stato. */
+    public static function validPayment($payment): bool
+    {
+        if (!is_array($payment) || array_keys($payment) !== ['id', 'opening_id', 'amount', 'currency', 'state', 'to_address', 'expires_at', 'qr', 'tx_hash', 'paid_at']) return false;
+        $paid = $payment['state'] === 'paid';
+        return self::uuid($payment['id']) && self::uuid($payment['opening_id']) && $payment['currency'] === 'TTS'
+            && is_string($payment['amount']) && preg_match('/^(?:0|[1-9][0-9]{0,3})\.[0-9]{2}$/D', $payment['amount']) === 1
+            && in_array($payment['state'], ['pending', 'paid', 'expired', 'cancelled'], true)
+            && is_string($payment['to_address']) && preg_match('/^0x[0-9a-fA-F]{40}$/D', $payment['to_address']) === 1
+            && is_int($payment['expires_at']) && $payment['expires_at'] > 0
+            && is_string($payment['qr']) && preg_match('/^' . preg_quote($payment['to_address'] . '&amount=' . $payment['amount'], '/') . '&message=napay:[0-9a-f]{32}$/D', $payment['qr']) === 1
+            && ($paid ? is_string($payment['tx_hash']) && preg_match('/^0x[0-9a-f]{64}$/D', $payment['tx_hash']) === 1 && is_int($payment['paid_at'])
+                : $payment['tx_hash'] === null && $payment['paid_at'] === null);
+    }
+
+    private function payment(string $method, string $path, string $token, ?array $body, ?string $idempotencyKey, array $success, string $openingId, ?string $paymentId = null): array
+    {
+        try {
+            if ($this->baseUrl !== 'https://napay.local/api/pos/v1' || !preg_match('/^napos_[A-Za-z0-9_-]{43}$/D', $token)
+                || !is_readable($this->caFile) || !is_readable($this->clientKeyFile)) return $this->unavailable();
+            $key = @file_get_contents($this->clientKeyFile, false, null, 0, 256);
+            if (!is_string($key) || !preg_match('/^[A-Za-z0-9_-]{43}$/D', trim($key))) return $this->unavailable();
+            $payload = $body === null ? '' : json_encode($body, JSON_THROW_ON_ERROR);
+            $response = $this->transport($this->baseUrl . $path, $method, $payload, trim($key), null, $token, $idempotencyKey);
+            $status = $response['status'] ?? null;
+            if (!empty($response['setCookie']) || strlen($response['body'] ?? '') > 16384) return $this->unavailable();
+            if (!preg_match('~^application/json(?:\s*;|$)~i', $response['type'] ?? '')) return $this->unavailable();
+            $data = json_decode($response['body'], true, 4, JSON_THROW_ON_ERROR);
+            if (in_array($status, $success, true)) {
+                // La risposta deve descrivere un pagamento dell'apertura corrente (e proprio quello richiesto).
+                if (!self::validPayment($data) || $data['opening_id'] !== $openingId || ($paymentId !== null && $data['id'] !== $paymentId)) return $this->unavailable();
+                return ['ok' => true, 'payment' => $data];
+            }
+            $code = is_array($data) ? ($data['error']['code'] ?? null) : null;
+            $known = [401 => ['invalid_token'], 404 => ['not_found'], 409 => ['opening_invalid', 'idempotency_conflict', 'payment_not_pending'],
+                400 => ['validation_failed'], 503 => ['payment_unavailable']];
+            if ($status === 429 && $code === 'rate_limited') {
+                $retry = filter_var($response['retry'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 60]]);
+                return ['ok' => false, 'error' => 'rate_limited', 'retry' => $retry === false ? 60 : $retry];
+            }
+            if (in_array($code, $known[$status] ?? [], true)) return ['ok' => false, 'error' => $code];
+            return $this->unavailable();
+        } catch (\Throwable) {
+            return $this->unavailable();
+        }
     }
 
     /** Apertura come restituita da Napay e custodita nella sessione POS: cinque campi esatti. */
@@ -181,7 +254,7 @@ class NapayLoginClient extends \yii\base\Component
             }
             if (in_array($code, $known[$status] ?? [], true)) return ['ok' => false, 'error' => $code];
             return $this->unavailable();
-        } catch (\Throwable $error) {
+        } catch (\Throwable) {
             return $this->unavailable();
         }
     }

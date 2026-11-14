@@ -43,6 +43,17 @@ button:active,.button:active{background:#e3e8d6}
 .error{color:var(--error);font-size:15px}.error div:empty{display:none}
 .notice-line,.verified{font-size:15px;line-height:1.5;padding:10px 12px;background:var(--ok);border-radius:8px;margin:0 0 12px}
 .boundary{font-size:13px;line-height:1.5;color:var(--muted);margin-bottom:0}
+.payment-amount{font:bold 44px 'Courier New',monospace;text-align:center;margin:8px 0}
+.payment-amount span{font-size:20px}
+.payment-state{text-align:center;font-size:18px;padding:10px 12px;border-radius:8px;background:var(--ok);margin:0 0 12px}
+.payment-expired,.payment-cancelled{background:#f3dcd8;color:var(--error)}
+.payment-qr{margin:0 auto 12px;max-width:280px;background:#fff;padding:8px;border-radius:12px;text-align:center}
+.payment-qr svg{width:100%;height:auto;display:block}
+.payment-qr figcaption{font-size:13px;color:var(--muted);margin-top:6px}
+.payment-meta{text-align:center;font:14px 'Courier New',monospace;color:var(--muted)}
+.payment-address{font:12px 'Courier New',monospace;overflow-wrap:anywhere;text-align:center;color:var(--muted)}
+.payment form{margin:0 0 8px}
+.till-foot.single{grid-template-columns:1fr}
 footer{padding:8px 16px 12px;color:var(--muted);font:11px 'Courier New',monospace;text-align:center}
 :focus-visible{outline:3px solid #57743e;outline-offset:3px}
 @media(min-width:900px){
@@ -50,6 +61,6 @@ footer{padding:8px 16px 12px;color:var(--muted);font:11px 'Courier New',monospac
   main{grid-template-columns:1.1fr 1fr;gap:48px;padding:32px;align-items:start}
   h1{font-size:52px}.subtitle{font-size:21px}
   .terminal{padding:28px;border-radius:24px;box-shadow:12px 15px 0 #dce1cf}
-  .terminal[aria-label="Cassa"]{grid-column:1/-1;max-width:520px;width:100%;margin:0 auto}
+  .terminal[data-heartbeat]{grid-column:1/-1;max-width:520px;width:100%;margin:0 auto}
 }
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}

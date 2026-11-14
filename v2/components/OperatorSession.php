@@ -8,6 +8,9 @@ class OperatorSession extends \yii\base\Component
 {
     private const KEY = 'pos.operator';
     private const OPENING = 'pos.opening';
+    private const PAYMENTS = 'pos.payments';
+    private const MAX_PAYMENTS = 20;
+    private const UUID = '/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/D';
 
     public function current(): ?array
     {
@@ -16,6 +19,7 @@ class OperatorSession extends \yii\base\Component
             || !is_string($value['token'] ?? null) || !preg_match('/^napos_[A-Za-z0-9_-]{43}$/D', $value['token'])
             || !is_string($value['name'] ?? null)) {
             Yii::$app->session->remove(self::OPENING);
+            Yii::$app->session->remove(self::PAYMENTS);
             Yii::$app->session->remove(self::KEY);
             return null;
         }
@@ -55,6 +59,32 @@ class OperatorSession extends \yii\base\Component
     public function dropOpening(): void
     {
         Yii::$app->session->remove(self::OPENING);
+        Yii::$app->session->remove(self::PAYMENTS);
+    }
+
+    /**
+     * SIP-021 fase 3: pagamenti creati da questa sessione POS sull'apertura corrente (ID => istante di creazione).
+     * Solo questi sono consultabili dal browser; Napay riverifica comunque sessione e apertura.
+     */
+    public function rememberPayment(string $paymentId): void
+    {
+        $payments = $this->payments();
+        $payments[$paymentId] = time();
+        arsort($payments);
+        Yii::$app->session->set(self::PAYMENTS, array_slice($payments, 0, self::MAX_PAYMENTS, true));
+    }
+
+    public function ownsPayment(string $paymentId): bool
+    {
+        return array_key_exists($paymentId, $this->payments());
+    }
+
+    /** @return array<string,int> */
+    private function payments(): array
+    {
+        $value = Yii::$app->session->get(self::PAYMENTS);
+        if (!is_array($value)) return [];
+        return array_filter($value, static fn($time, $id) => is_string($id) && preg_match(self::UUID, $id) === 1 && is_int($time), ARRAY_FILTER_USE_BOTH);
     }
 
     /** Chiave di idempotenza di un form di apertura (UUID v4). */
