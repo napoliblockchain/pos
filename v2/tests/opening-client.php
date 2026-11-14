@@ -71,7 +71,7 @@ try {
     $check($client->release($token, ['id' => 'x'] + $opening) === $unavailable && $client->calls === $calls, 'Malformed custody never sent');
 
     // --- controller: apertura custodita solo sul server, verificata a ogni schermata cassa
-    $app = new yii\web\Application(['id' => 'pos-opening-test', 'basePath' => dirname(__DIR__), 'components' => [
+    $app = new yii\web\Application(['id' => 'pos-opening-test', 'basePath' => dirname(__DIR__), 'language' => 'it-IT', 'components' => [
         'request' => ['cookieValidationKey' => 'fixture-only', 'hostInfo' => 'https://pos.localhost', 'url' => '/', 'scriptUrl' => '/index.php', 'scriptFile' => dirname(__DIR__) . '/web/index.php', 'enableCsrfValidation' => false],
         'session' => ['name' => 'POSOPENINGTEST', 'savePath' => $work . '/sessions'],
         'napayLogin' => $client, 'operatorSession' => ['class' => app\components\OperatorSession::class],
