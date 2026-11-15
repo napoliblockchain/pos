@@ -96,6 +96,7 @@ try {
     $check($client->paymentHistory($token, ['id' => 'x'] + $opening) === $unavailable && $client->calls === $calls, 'History without a valid opening: nothing sent');
 
     // --- controller: pagamenti solo dalla sessione server, browser senza token
+    putenv('POS_MODE=preview'); // come la sandbox e l'e2e: pulsante di copia della richiesta visibile
     $app = new yii\web\Application(['id' => 'pos-payment-test', 'basePath' => dirname(__DIR__), 'language' => 'it-IT', 'components' => [
         'request' => ['cookieValidationKey' => 'fixture-only', 'hostInfo' => 'https://pos.localhost', 'url' => '/', 'scriptUrl' => '/index.php', 'scriptFile' => dirname(__DIR__) . '/web/index.php', 'enableCsrfValidation' => false],
         'session' => ['name' => 'POSPAYMENTTEST', 'savePath' => $work . '/sessions'],
@@ -120,12 +121,26 @@ try {
         && end($client->sent)[4] === $key, 'Create: integer cents, form key, payment remembered, redirect to its page');
     $client->responses = [$json($pending, 200)];
     $html = $controller->actionView($pending['id']);
+    $check(str_contains($html, 'data-payment-request="/payment/request?id=' . $pending['id'] . '"') && !str_contains($html, 'napay:' . $reference), 'Preview copy button present, reference not in the page');
     $check(is_string($html) && str_contains($html, '<svg') && !str_contains($html, '<?xml') && !str_contains($html, '<desc') && str_contains($html, '12.34')
         && str_contains($html, 'data-payment-status') && str_contains($html, 'Negozio &lt;b&gt; - Cassa') && !str_contains($html, $token)
         && str_contains($html, 'In attesa del pagamento'), 'Pending page: inline QR without prolog or text, polling hook, encoded label, no token');
     $client->responses = [$json($paid, 200)];
     $check($controller->actionStatus($pending['id']) === ['status' => 'paid'], 'Status JSON carries only the state');
     $check($controller->actionStatus($uuid()) === ['status' => 'closed'], 'Status of a payment not created here: closed, no call');
+    // richiesta da copiare (solo anteprima): testo del QR, mai per pagamenti altrui o non più in attesa
+    putenv('POS_MODE=preview');
+    $client->responses = [$json($pending, 200)];
+    $check($controller->actionRequest($pending['id']) === ['request' => $pending['qr']], 'Preview: payment request (QR text) for the own pending payment');
+    foreach (['foreign payment' => [$uuid(), null], 'paid payment' => [$pending['id'], $json($paid, 200)]] as $label => [$id, $reply]) {
+        if ($reply !== null) $client->responses = [$reply];
+        try { $controller->actionRequest($id); $check(false, 'No payment request: ' . $label); } catch (yii\web\NotFoundHttpException $e) { $check(true, 'No payment request: ' . $label); }
+    }
+    putenv('POS_MODE=live');
+    $calls = $client->calls;
+    try { $controller->actionRequest($pending['id']); $check(false, 'No payment request outside preview'); } catch (yii\web\NotFoundHttpException $e) { $check($client->calls === $calls, 'No payment request outside preview'); }
+    putenv('POS_MODE=preview');
+    $app->response->format = yii\web\Response::FORMAT_HTML;
     try { $controller->actionView($uuid()); $check(false, 'Foreign payment page is 404'); } catch (yii\web\NotFoundHttpException $e) { $check(true, 'Foreign payment page is 404'); }
     $client->responses = [$json($paid, 200)];
     $html = $controller->actionView($pending['id']);

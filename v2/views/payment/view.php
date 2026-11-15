@@ -26,6 +26,11 @@ $states = [
 <p class="payment-meta"><?= Html::encode(Yii::t('app', 'Expires at {time}', ['time' => (new DateTimeImmutable('@' . $payment['expires_at']))->setTimezone(new DateTimeZone('Europe/Rome'))->format('H:i')])) ?>
 <span data-countdown></span></p>
 <p class="payment-address"><?= Html::encode($payment['to_address']) ?></p>
+<?php if (getenv('POS_MODE') === 'preview'): ?>
+<button type="button" class="button" data-payment-request="<?= Html::encode('/payment/request?id=' . $payment['id']) ?>" data-copied="<?= Html::encode(Yii::t('app', 'Copied: paste it in the wallet recipient field.')) ?>"
+ data-failed="<?= Html::encode(Yii::t('app', 'Copy failed.')) ?>"><?= Html::encode(Yii::t('app', 'Copy payment request (test chain)')) ?></button>
+<p class="payment-meta" data-payment-request-result role="status"></p>
+<?php endif ?>
 <?= Html::beginForm(['/payment/cancel', 'id' => $payment['id']], 'post') ?><button type="submit"><?= Html::encode(Yii::t('app', 'Cancel payment')) ?></button><?= Html::endForm() ?>
 <?php elseif ($payment['state'] === 'paid'): ?>
 <p class="payment-meta"><?= Html::encode(Yii::t('app', 'Transaction {hash}', ['hash' => substr($payment['tx_hash'], 0, 12) . '...' . substr($payment['tx_hash'], -10)])) ?></p>

@@ -53,6 +53,19 @@ if (payment) {
   timer = setInterval(poll, 3000);
 }
 
+// anteprima: copia la richiesta di pagamento (testo del QR) per incollarla nel wallet sullo stesso PC
+const requestButton = document.querySelector('[data-payment-request]');
+if (requestButton) {
+  const result = document.querySelector('[data-payment-request-result]');
+  requestButton.addEventListener('click', () => {
+    fetch(requestButton.dataset.paymentRequest, { credentials: 'same-origin', cache: 'no-store', headers: { 'Accept': 'application/json' } })
+      .then(response => response.ok ? response.json() : Promise.reject())
+      .then(data => navigator.clipboard.writeText(data.request))
+      .then(() => { if (result) result.textContent = requestButton.dataset.copied; })
+      .catch(() => { if (result) result.textContent = requestButton.dataset.failed; });
+  });
+}
+
 const network = document.querySelector('[data-network]');
 const showNetwork = () => {
   if (!network) return;

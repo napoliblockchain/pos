@@ -20,7 +20,7 @@ class PaymentController extends Controller
     public function behaviors()
     {
         return ['verbs' => ['class' => VerbFilter::class, 'actions' => ['create' => ['POST'], 'view' => ['GET'], 'status' => ['GET'],
-            'cancel' => ['POST'], 'receipt' => ['GET'], 'history' => ['GET']]]];
+            'cancel' => ['POST'], 'receipt' => ['GET'], 'history' => ['GET'], 'request' => ['GET']]]];
     }
 
     public function beforeAction($action)
@@ -87,6 +87,21 @@ class PaymentController extends Controller
         if ($result['error'] === 'invalid_token') { Yii::$app->operatorSession->forget(); return ['status' => 'logout']; }
         if (in_array($result['error'], ['opening_invalid', 'not_found'], true)) return ['status' => 'closed'];
         return ['status' => 'retry'];
+    }
+
+    /**
+     * Solo in anteprima (chain di test): testo del QR da copiare, per pagare da un wallet sullo stesso PC senza fotocamera.
+     * Pagamento della sessione e ancora in attesa; nella pagina il riferimento resta solo dentro il QR.
+     */
+    public function actionRequest(string $id)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+        if (getenv('POS_MODE') !== 'preview') throw new NotFoundHttpException(Yii::t('app', 'Payment not found.'));
+        [$operator, $opening] = $this->context();
+        if ($operator === null || $opening === null || !Yii::$app->operatorSession->ownsPayment($id)) throw new NotFoundHttpException(Yii::t('app', 'Payment not found.'));
+        $result = Yii::$app->napayLogin->viewPayment($operator['token'], $opening['opening'], $id);
+        if (!$result['ok'] || $result['payment']['state'] !== 'pending') throw new NotFoundHttpException(Yii::t('app', 'Payment not found.'));
+        return ['request' => $result['payment']['qr']];
     }
 
     public function actionCancel(string $id)
