@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Napay POS">
 <?= Html::csrfMetaTags() ?>
 <title>Napay POS</title>
-<link rel="manifest" href="/manifest.webmanifest"><link rel="icon" href="/icons/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="manifest" href="/manifest.webmanifest"><link rel="icon" href="/brand/icon.svg" type="image/svg+xml"><link rel="icon" href="/favicon.ico" sizes="48x48"><link rel="apple-touch-icon" href="/brand/apple-touch-icon.png">
 <link rel="stylesheet" href="/pos.css"><script defer src="/pos.js"></script>
 <?php $this->head() ?></head><body><?php $this->beginBody() ?>
 <header class="masthead"><a href="/" class="brand">na<span>pay</span><small>POINT OF SALE</small></a><span class="status" data-network data-online="<?= Html::encode(Yii::t('app', 'ONLINE')) ?>" data-offline="<?= Html::encode(Yii::t('app', 'OFFLINE')) ?>"><?= Html::encode(Yii::t('app', 'ONLINE')) ?></span></header>

@@ -1,8 +1,8 @@
 'use strict';
 // Napay POS: solo guscio statico in cache. Pagine, form e API restano sempre dalla rete
 // (contengono dati operatore e verifiche Napay); senza rete la navigazione mostra offline.html.
-const CACHE = 'napay-pos-shell-v1';
-const SHELL = ['/pos.css', '/pos.js', '/offline.html', '/manifest.webmanifest', '/icons/icon.svg', '/icons/icon-192.png', '/icons/icon-512.png'];
+const CACHE = 'napay-pos-shell-v2';
+const SHELL = ['/pos.css', '/pos.js', '/offline.html', '/manifest.webmanifest', '/brand/icon.svg', '/brand/icon-192.png', '/brand/icon-512.png', '/brand/apple-touch-icon.png', '/favicon.ico'];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting()));
