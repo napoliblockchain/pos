@@ -1,70 +1,96 @@
-/* Napay POS: mobile-first (terminalino con stampante o smartphone); due colonne solo da 900px. */
-:root{--paper:#f6f3e9;--ink:#162626;--accent:#f4c949;--muted:#586965;--line:#d5dcd1;--error:#a72e25;--ok:#e7edda;--tap:56px}
+/* Napay POS: mobile-first (terminalino con stampante o smartphone); due colonne solo da 900px.
+   Aspetto di Napay e del wallet: Tabler 1.6.1 (/tabler/tabler.min.css) e i suoi colori; resta solo il marchio na/pay. */
+:root{--tap:56px;--ink:#162626;--brand-green:#64763e;--muted:var(--tblr-secondary);--line:var(--tblr-border-color);--error:var(--tblr-danger);--ok:var(--tblr-green-lt)}
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
-body{margin:0;background:var(--paper);color:var(--ink);font-family:Georgia,serif;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;
+body{margin:0;background:var(--tblr-body-bg);color:var(--tblr-body-color);font-family:var(--tblr-font-sans-serif);font-size:15px;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;
   padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);-webkit-tap-highlight-color:transparent}
-.masthead{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;gap:12px}
-.brand{text-decoration:none;color:var(--ink);font:bold 26px Georgia,serif;letter-spacing:-1px;line-height:1}
-.brand span{color:#64763e}.brand small{display:block;font:9px 'Courier New',monospace;letter-spacing:2px;margin-top:4px}
-.status,.eyebrow,.badge{font:11px 'Courier New',monospace;letter-spacing:1.5px}
-.status{border:1px solid var(--line);padding:6px 10px;border-radius:30px;color:var(--ink)}
-.status.offline{background:var(--error);border-color:var(--error);color:#fff}
-main{flex:1;width:100%;max-width:1100px;margin:0 auto;padding:4px 12px 16px;display:grid;grid-template-columns:1fr;gap:12px;align-content:start}
+
+/* barra in alto come la topbar di Napay: icona, marchio, stato della rete */
+.masthead{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;gap:12px;background:var(--tblr-bg-surface);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);line-height:1}
+.brand img{width:34px;height:34px;border-radius:8px}
+.brand-name{font:bold 26px Georgia,"DejaVu Serif",serif;letter-spacing:-1px}
+.brand-name span{color:var(--brand-green)}
+.brand small{display:block;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-top:3px}
+.status,.eyebrow,.badge{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+.status{padding:5px 10px;border-radius:var(--tblr-border-radius-pill);background:var(--tblr-green-lt);color:var(--tblr-green)}
+.status.offline{background:var(--error);color:#fff}
+
+main{flex:1;width:100%;max-width:1100px;margin:0 auto;padding:16px 12px;display:grid;grid-template-columns:1fr;gap:16px;align-content:start}
 .intro{padding:0 4px}
 .eyebrow{margin:0;color:var(--muted)}
-h1{font-size:30px;line-height:1.1;font-weight:normal;letter-spacing:-1px;margin:6px 0}
-.subtitle{color:var(--muted);font-size:17px;margin:4px 0 0}
-.terminal{padding:16px;background:#fffef7;border:1px solid var(--line);border-radius:18px}
+h1{font-size:24px;line-height:1.2;font-weight:600;margin:6px 0;color:var(--tblr-body-color)}
+.subtitle{color:var(--muted);font-size:15px;margin:4px 0 0}
+
+/* riquadro principale come le card di Napay */
+.terminal{padding:16px;background:var(--tblr-bg-surface);border:1px solid var(--line);border-radius:var(--tblr-border-radius-lg);box-shadow:var(--tblr-shadow-card)}
 .terminal p{line-height:1.5}
-label{display:flex;justify-content:space-between;font:14px 'Courier New',monospace;color:var(--muted)}
-label span{font-weight:bold}
-input{width:100%;min-width:0;border:0;border-bottom:1px solid var(--line);padding:10px 0;font:44px 'Courier New',monospace;text-align:right;background:transparent;color:var(--ink);border-radius:0}
-button,.button{display:inline-flex;align-items:center;justify-content:center;font:20px 'Courier New',monospace;background:var(--paper);color:var(--ink);
-  border:1px solid var(--line);border-radius:12px;min-height:var(--tap);padding:0 16px;cursor:pointer;touch-action:manipulation;text-decoration:none;width:100%}
-button:active,.button:active{background:#e3e8d6}
-.primary{background:var(--accent);border-color:var(--accent);font-weight:bold}
+label{display:flex;justify-content:space-between;font-size:14px;font-weight:500;color:var(--tblr-body-color);margin-bottom:4px}
+label span{color:var(--muted)}
+input{width:100%;min-width:0;border:1px solid var(--line);padding:10px 12px;font:600 40px var(--tblr-font-sans-serif);font-variant-numeric:tabular-nums;text-align:right;
+  background:var(--tblr-bg-forms,#fff);color:var(--tblr-body-color);border-radius:var(--tblr-border-radius)}
+input:focus{border-color:var(--tblr-primary);outline:0;box-shadow:0 0 0 .25rem rgba(var(--tblr-primary-rgb),.25)}
+
+/* pulsanti come .btn di Tabler */
+button,.button{display:inline-flex;align-items:center;justify-content:center;font:500 16px var(--tblr-font-sans-serif);background:var(--tblr-bg-surface);color:var(--tblr-body-color);
+  border:1px solid var(--line);border-radius:var(--tblr-border-radius);min-height:var(--tap);padding:0 16px;cursor:pointer;touch-action:manipulation;text-decoration:none;width:100%;
+  box-shadow:var(--tblr-shadow-input,0 1px 1px rgba(24,36,51,.06))}
+button:hover,.button:hover{background:var(--tblr-bg-surface-secondary);color:var(--tblr-body-color)}
+button:active,.button:active{background:var(--tblr-bg-surface-tertiary)}
+.primary,.primary:hover{background:var(--tblr-primary);border-color:var(--tblr-primary);color:#fff;font-weight:600}
+.primary:active{background:var(--tblr-primary-darken,var(--tblr-primary));filter:brightness(.92)}
+
 .keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
-.keypad button{min-height:64px;font-size:26px}
+.keypad button{min-height:64px;font-size:24px;font-weight:600;font-variant-numeric:tabular-nums}
 .actions{display:grid;grid-template-columns:1fr 2fr;gap:8px}
-.actions button{font-size:16px}
 .till-head{display:flex;flex-direction:column;gap:6px;margin-bottom:12px;overflow-wrap:anywhere}
-.till-head strong{font-size:20px}
-.badge{align-self:flex-start;background:var(--ok);padding:4px 8px;border-radius:6px}
+.till-head strong{font-size:18px;font-weight:600}
+.badge{align-self:flex-start;background:var(--tblr-primary-lt);color:var(--tblr-primary);padding:4px 8px;border-radius:var(--tblr-border-radius)}
 .till-foot{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px}
 .till-foot form,.terminal-catalog form{margin:0}
 .terminal-catalog{list-style:none;padding:0;margin:8px 0 16px;display:grid;gap:8px}
-.open-terminal{flex-direction:column;align-items:flex-start;text-align:left;padding:12px 16px;min-height:72px;font-family:Georgia,serif;overflow-wrap:anywhere}
-.open-terminal strong{font-size:20px}
-.open-terminal span{color:var(--muted);font:13px 'Courier New',monospace;margin-top:4px}
+.open-terminal{flex-direction:column;align-items:flex-start;text-align:left;padding:12px 16px;min-height:72px;overflow-wrap:anywhere}
+.open-terminal strong{font-size:17px;font-weight:600}
+.open-terminal span{color:var(--muted);font-size:13px;margin-top:4px}
 #operator-login label{margin-top:16px}
-#operator-login input{font:18px Georgia,serif;text-align:left;padding:12px 0}
+#operator-login input{font:400 16px var(--tblr-font-sans-serif);text-align:left;padding:12px}
 #operator-login button,#operator-logout button{margin-top:20px}
-.error{color:var(--error);font-size:15px}.error div:empty{display:none}
-.notice-line,.verified{font-size:15px;line-height:1.5;padding:10px 12px;background:var(--ok);border-radius:8px;margin:0 0 12px}
+.error{color:var(--error);font-size:14px}.error div:empty{display:none}
+.notice-line,.verified{font-size:14px;line-height:1.5;padding:10px 12px;background:var(--tblr-green-lt);color:var(--tblr-body-color);border-radius:var(--tblr-border-radius);margin:0 0 12px}
 .boundary{font-size:13px;line-height:1.5;color:var(--muted);margin-bottom:0}
-.payment-amount{font:bold 44px 'Courier New',monospace;text-align:center;margin:8px 0}
-.payment-amount span{font-size:20px}
-.payment-state{text-align:center;font-size:18px;padding:10px 12px;border-radius:8px;background:var(--ok);margin:0 0 12px}
-.payment-expired,.payment-cancelled{background:#f3dcd8;color:var(--error)}
-.payment-qr{margin:0 auto 12px;max-width:280px;background:#fff;padding:8px;border-radius:12px;text-align:center}
+
+/* incasso TTS */
+.payment-amount{font:700 44px var(--tblr-font-sans-serif);font-variant-numeric:tabular-nums;text-align:center;margin:8px 0}
+.payment-amount span{font-size:20px;color:var(--muted)}
+.payment-state{text-align:center;font-size:16px;font-weight:500;padding:10px 12px;border-radius:var(--tblr-border-radius);background:var(--tblr-azure-lt);color:var(--tblr-azure);margin:0 0 12px}
+.payment-paid{background:var(--tblr-green-lt);color:var(--tblr-green)}
+.payment-expired,.payment-cancelled{background:var(--tblr-red-lt);color:var(--error)}
+.payment-qr{margin:0 auto 12px;max-width:280px;background:#fff;padding:8px;border:1px solid var(--line);border-radius:var(--tblr-border-radius-lg);text-align:center}
 .payment-qr svg{width:100%;height:auto;display:block}
 .payment-qr figcaption{font-size:13px;color:var(--muted);margin-top:6px}
-.payment-meta{text-align:center;font:14px 'Courier New',monospace;color:var(--muted)}
-.payment-address{font:12px 'Courier New',monospace;overflow-wrap:anywhere;text-align:center;color:var(--muted)}
+.payment-meta{text-align:center;font-size:14px;color:var(--muted)}
+.payment-address{font:12px var(--tblr-font-monospace);overflow-wrap:anywhere;text-align:center;color:var(--muted)}
 .payment form{margin:0 0 8px}
 .till-foot.single{grid-template-columns:1fr}
-.history-list{list-style:none;margin:0 0 12px;padding:0}
-.history-list li{display:grid;grid-template-columns:auto 1fr auto auto;gap:8px;align-items:center;padding:10px 12px;border-radius:8px;background:var(--ok);margin-bottom:6px;font:14px 'Courier New',monospace}
-.history-amount{font-weight:bold;text-align:right}
-.history-list a{color:inherit;font-weight:bold}
-footer{padding:8px 16px 12px;color:var(--muted);font:11px 'Courier New',monospace;text-align:center}
-:focus-visible{outline:3px solid #57743e;outline-offset:3px}
+
+/* storico come gli elenchi di Napay */
+.history-list{list-style:none;margin:0 0 12px;padding:0;border:1px solid var(--line);border-radius:var(--tblr-border-radius);overflow:hidden}
+.history-list li{display:grid;grid-template-columns:auto 1fr auto auto;gap:8px;align-items:center;padding:10px 12px;font-size:14px;border-top:1px solid var(--line);background:var(--tblr-bg-surface)}
+.history-list li:first-child{border-top:0}
+.history-time{color:var(--muted);font-variant-numeric:tabular-nums}
+.history-amount{font-weight:600;text-align:right;font-variant-numeric:tabular-nums}
+.history-list .payment-paid .history-state{color:var(--tblr-green)}
+.history-list .payment-expired .history-state,.history-list .payment-cancelled .history-state{color:var(--error)}
+.history-list a{color:var(--tblr-primary);font-weight:500}
+
+footer{padding:8px 16px 12px;color:var(--muted);font-size:12px;text-align:center}
+:focus-visible{outline:2px solid var(--tblr-primary);outline-offset:3px}
 @media(min-width:900px){
-  .masthead{padding:28px 32px 16px}.brand{font-size:34px}
-  main{grid-template-columns:1.1fr 1fr;gap:48px;padding:32px;align-items:start}
-  h1{font-size:52px}.subtitle{font-size:21px}
-  .terminal{padding:28px;border-radius:24px;box-shadow:12px 15px 0 #dce1cf}
+  .masthead{padding:14px 32px}
+  main{grid-template-columns:1.1fr 1fr;gap:32px;padding:32px;align-items:start}
+  h1{font-size:32px}.subtitle{font-size:17px}
+  .terminal{padding:24px}
   .terminal[data-heartbeat]{grid-column:1/-1;max-width:520px;width:100%;margin:0 auto}
 }
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
