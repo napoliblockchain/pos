@@ -34,7 +34,7 @@ function check(value,label){if(!value)throw new Error(label);++checks;console.lo
   await page.locator('#operator-email').fill('browser-admin@example.invalid');
   const wrong='wrong-'+crypto.randomBytes(12).toString('hex');await page.locator('#operator-password').fill(wrong);
   await Promise.all([page.waitForNavigation(),page.locator('#operator-login button[type=submit]').click()]);
-  check(await page.locator('.error').innerText().then(text=>text.includes('Email o password non validi')),'Real backend invalid credentials shown generically');
+  check(await page.locator('#operator-login .invalid-feedback').innerText().then(text=>text.includes('Email o password non validi')),'Real backend invalid credentials shown generically');
   check(await page.locator('#operator-password').inputValue()==='','Password field cleared after failure');
   check(!(await page.content()).includes(wrong),'Failed password never echoed');
   stage='valid credentials';

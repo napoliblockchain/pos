@@ -68,4 +68,12 @@ return [
     'Use an amount with at most two decimals.' => 'Usa un importo con massimo due decimali.',
     'Waiting for payment' => 'In attesa del pagamento',
     'Waiting' => 'In attesa',
+    'Accept TTS payments in your shop, in a few taps' => 'Incassa in TTS dal tuo negozio, in pochi tocchi',
+    'Our supporters' => 'I nostri supporter',
+    'Sign in to the POS' => 'Accedi al POS',
+    'Use your Napay credentials' => 'Usa le credenziali Napay',
+    'Email' => 'Email',
+    'Password' => 'Password',
+    'name@example.com' => 'nome@esempio.it',
+    'Sign in' => 'Accedi',
 ];

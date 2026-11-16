@@ -1,13 +1,12 @@
 <?php use yii\helpers\Html; ?>
-<section class="intro"><p class="eyebrow">ACCESSO OPERATORE</p><h1>Accedi al POS</h1><p class="subtitle">Accedi con le credenziali Napay</p></section>
-<section class="terminal" aria-label="Login operatore">
+<h1 class="auth-title"><?= Html::encode(Yii::t('app', 'Sign in to the POS')) ?></h1>
+<p class="auth-subtitle"><?= Html::encode(Yii::t('app', 'Use your Napay credentials')) ?></p>
 <?= Html::beginForm(['/site/login'], 'post', ['id' => 'operator-login', 'autocomplete' => 'on']) ?>
-<?= Html::errorSummary($model, ['class' => 'error', 'role' => 'alert']) ?>
-<label for="operator-email">Email</label>
-<?= Html::activeTextInput($model, 'email', ['id' => 'operator-email', 'type' => 'email', 'autocomplete' => 'username', 'maxlength' => 254]) ?>
-<label for="operator-password">Password</label>
-<?= Html::passwordInput('OperatorLoginForm[password]', '', ['id' => 'operator-password', 'autocomplete' => 'current-password', 'maxlength' => 1024]) ?>
-<button type="submit" class="primary">Accedi</button>
-<p class="boundary">Credenziali verificate dal backend. Nessuna password salvata nel POS.</p>
+<div class="mb-3"><label class="form-label" for="operator-email"><?= Html::encode(Yii::t('app', 'Email')) ?></label>
+<?= Html::activeTextInput($model, 'email', ['id' => 'operator-email', 'class' => 'form-control' . ($model->hasErrors('email') ? ' is-invalid' : ''), 'type' => 'email', 'autocomplete' => 'username', 'maxlength' => 254, 'placeholder' => Yii::t('app', 'name@example.com')]) ?>
+<?= Html::error($model, 'email', ['class' => 'invalid-feedback d-block', 'role' => 'alert']) ?></div>
+<div class="mb-3"><label class="form-label" for="operator-password"><?= Html::encode(Yii::t('app', 'Password')) ?></label>
+<?= Html::passwordInput('OperatorLoginForm[password]', '', ['id' => 'operator-password', 'class' => 'form-control' . ($model->hasErrors('password') ? ' is-invalid' : ''), 'autocomplete' => 'current-password', 'maxlength' => 1024, 'placeholder' => '••••••••']) ?>
+<?= Html::error($model, 'password', ['class' => 'invalid-feedback d-block', 'role' => 'alert']) ?></div>
+<button type="submit" class="auth-submit"><?= Html::encode(Yii::t('app', 'Sign in')) ?></button>
 <?= Html::endForm() ?>
-</section>

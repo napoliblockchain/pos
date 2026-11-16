@@ -28,6 +28,7 @@ class SiteController extends Controller
     public function actionLogin()
     {
         if (Yii::$app->operatorSession->current() !== null) return $this->redirect(['account']);
+        $this->layout = 'auth';
         $model = new OperatorLoginForm();
         if (Yii::$app->request->isPost) {
             $data = Yii::$app->request->post('OperatorLoginForm');
