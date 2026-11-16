@@ -162,7 +162,7 @@ try {
     $app->request->setBodyParams(['AmountForm' => ['amount' => '5'], 'key' => $uuid()]);
     $client->responses = [$error('payment_unavailable', 503)];
     $html = $controller->actionCreate();
-    $check($app->response->statusCode === 503 && str_contains($html, 'wallet del merchant'), 'Merchant without wallet: clear message on the till');
+    $check($app->response->statusCode === 503 && str_contains($html, 'wallet del negozio'), 'Store without wallet: clear message on the till');
     $app->response->statusCode = 200;
     $client->responses = [$json(['payments' => [$mine, $other, array_replace($other, ['id' => $uuid(), 'state' => 'expired', 'tx_hash' => null, 'paid_at' => null])]], 200)];
     $html = $controller->actionHistory();

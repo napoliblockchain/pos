@@ -54,7 +54,7 @@ class PaymentController extends Controller
         Yii::$app->response->statusCode = $result['error'] === 'rate_limited' ? 429 : ($result['error'] === 'validation_failed' ? 422 : 503);
         if ($result['error'] === 'rate_limited') Yii::$app->response->headers->set('Retry-After', (string) $result['retry']);
         return $this->renderTill($model, $opening['label'], [
-            'payment_unavailable' => Yii::t('app', 'TTS payments are not available for this POS: ask the manager to set the merchant wallet.'),
+            'payment_unavailable' => Yii::t('app', 'TTS payments are not available for this POS: ask the manager to set the store wallet.'),
             'idempotency_conflict' => Yii::t('app', 'Request already sent with different data: enter the amount again.'),
             'validation_failed' => Yii::t('app', 'Amount not accepted by Napay.'),
             'rate_limited' => Yii::t('app', 'Too many attempts: wait a few seconds and retry.'),

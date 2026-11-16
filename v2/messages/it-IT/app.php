@@ -64,7 +64,7 @@ return [
     'Transaction' => 'Transazione',
     'TTS payment' => 'Pagamento TTS',
     'TTS PAYMENT' => 'PAGAMENTO TTS',
-    'TTS payments are not available for this POS: ask the manager to set the merchant wallet.' => 'Pagamenti TTS non disponibili per questo POS: chiedi al responsabile di impostare il wallet del merchant.',
+    'TTS payments are not available for this POS: ask the manager to set the store wallet.' => 'Pagamenti TTS non disponibili per questo POS: chiedi al responsabile di impostare il wallet del negozio.',
     'Use an amount with at most two decimals.' => 'Usa un importo con massimo due decimali.',
     'Waiting for payment' => 'In attesa del pagamento',
     'Waiting' => 'In attesa',
