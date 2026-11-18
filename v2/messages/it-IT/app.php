@@ -95,4 +95,12 @@ return [
     'A BTC payment request is valid for 15 minutes. Create a new payment if the customer wants to pay again.' => 'Una richiesta di pagamento BTC vale 15 minuti. Crea un nuovo pagamento se il cliente vuole pagare di nuovo.',
     'order {order} BTC + network fee {fee} BTC' => 'ordine {order} BTC + fee di rete {fee} BTC',
     'Paid {btc} BTC, confirmations: {count}' => 'Pagati {btc} BTC, conferme: {count}',
+    'Received' => 'Ricevuto',
+    'Confirmed' => 'Confermato',
+    'Not valid' => 'Non valido',
+    'Not created' => 'Non creato',
+    'Unknown outcome' => 'Esito sconosciuto',
+    'Collected today' => 'Incassato oggi',
+    'No payments collected today.' => 'Nessun incasso oggi.',
+    'Payments: {count}' => 'Incassi: {count}',
 ];

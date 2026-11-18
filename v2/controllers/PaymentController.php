@@ -190,7 +190,7 @@ class PaymentController extends Controller
         $result = Yii::$app->napayLogin->paymentHistory($operator['token'], $opening['opening']);
         if (!$result['ok'] && ($redirect = $this->leave($result['error']))) return $redirect;
         if (!$result['ok']) Yii::$app->response->statusCode = $result['error'] === 'rate_limited' ? 429 : 503;
-        return $this->render('history', ['payments' => $result['payments'] ?? null, 'label' => $opening['label']]);
+        return $this->render('history', ['payments' => $result['payments'] ?? null, 'totals' => $result['totals'] ?? null, 'label' => $opening['label']]);
     }
 
     /**

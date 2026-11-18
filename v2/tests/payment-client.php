@@ -77,16 +77,26 @@ try {
     $client->responses = [$error('payment_not_pending', 409)];
     $check($client->cancelPayment($token, $opening, $pending['id']) === ['ok' => false, 'error' => 'payment_not_pending'], 'Cancel of a closed payment: payment_not_pending');
     // --- storico
-    $other = ['id' => $uuid(), 'amount' => '5.00', 'currency' => 'TTS', 'state' => 'paid', 'created_at' => time() - 600, 'paid_at' => time() - 590, 'tx_hash' => '0x' . str_repeat('cd', 32), 'own' => false];
-    $mine = ['id' => $pending['id'], 'amount' => '12.34', 'currency' => 'TTS', 'state' => 'pending', 'created_at' => time(), 'paid_at' => null, 'tx_hash' => null, 'own' => true];
-    $client->responses = [$json(['payments' => [$mine, $other]], 200)];
-    $check($client->paymentHistory($token, $opening) === ['ok' => true, 'payments' => [$mine, $other]] && end($client->sent)[1] === 'GET' && end($client->sent)[2] === ''
+    // SIP-033 passo 5: voci con il metodo (TTS/BTC) e totali di oggi
+    $other = ['id' => $uuid(), 'method' => 'tts', 'amount' => '5.00', 'currency' => 'TTS', 'state' => 'paid', 'created_at' => time() - 600, 'paid_at' => time() - 590,
+        'tx_hash' => '0x' . str_repeat('cd', 32), 'rate' => null, 'paid_btc' => null, 'own' => false];
+    $mine = ['id' => $pending['id'], 'method' => 'tts', 'amount' => '12.34', 'currency' => 'TTS', 'state' => 'pending', 'created_at' => time(), 'paid_at' => null, 'tx_hash' => null,
+        'rate' => null, 'paid_btc' => null, 'own' => true];
+    $btcItem = ['id' => $uuid(), 'method' => 'btc', 'amount' => '1.00', 'currency' => 'EUR', 'state' => 'settled', 'created_at' => time() - 300, 'paid_at' => time() - 290,
+        'tx_hash' => null, 'rate' => '61700.00', 'paid_btc' => '0.00024680', 'own' => false];
+    $totals = ['since' => time() - 3600, 'tts' => ['count' => 1, 'amount' => '5.00'], 'btc' => [['currency' => 'EUR', 'count' => 1, 'amount' => '1.00', 'btc' => '0.00024680']]];
+    $client->responses = [$json(['payments' => [$mine, $other], 'totals' => $totals], 200)];
+    $check($client->paymentHistory($token, $opening) === ['ok' => true, 'payments' => [$mine, $other], 'totals' => $totals] && end($client->sent)[1] === 'GET' && end($client->sent)[2] === ''
         && end($client->sent)[0] === $base . '/openings/' . $opening['id'] . '/payments', 'History: GET on the opening, list returned');
-    foreach ([['qr' => 'x'], ['to_address' => $address], ['own' => 1], ['state' => 'refunded'], ['tx_hash' => null], ['amount' => '5'], ['created_at' => '1']] as $bad) {
-        $client->responses = [$json(['payments' => [$mine, array_merge($other, $bad)]], 200)];
+    foreach ([['qr' => 'x'], ['to_address' => $address], ['own' => 1], ['state' => 'refunded'], ['tx_hash' => null], ['amount' => '5'], ['created_at' => '1'],
+        ['method' => 'eth'], ['rate' => '61700.00'], ['paid_btc' => '0.00000001'], ['method' => 'btc']] as $bad) {
+        $client->responses = [$json(['payments' => [$mine, array_merge($other, $bad)], 'totals' => $totals], 200)];
         $check($client->paymentHistory($token, $opening) === $unavailable, 'Malformed history item refused: ' . json_encode(array_keys($bad)));
     }
-    foreach ([['payments' => array_fill(0, 51, $other)], ['payments' => [$other], 'next' => 1], ['payments' => ['a' => $other]], [$other]] as $bad) {
+    foreach ([['payments' => array_fill(0, 51, $other), 'totals' => $totals], ['payments' => [$other], 'totals' => $totals, 'next' => 1], ['payments' => ['a' => $other], 'totals' => $totals], [$other],
+        ['payments' => [$other]], ['payments' => [$other], 'totals' => ['tts' => $totals['tts']] + $totals], ['payments' => [$other], 'totals' => array_replace($totals, ['btc' => [['currency' => 'BTC'] + $totals['btc'][0]]])],
+        ['payments' => [$other], 'totals' => array_replace($totals, ['tts' => ['count' => -1, 'amount' => '5.00']])], ['payments' => [array_replace($btcItem, ['tx_hash' => '0x' . str_repeat('ab', 32)])], 'totals' => $totals],
+        ['payments' => [array_replace($btcItem, ['paid_at' => null])], 'totals' => $totals], ['payments' => [array_replace($btcItem, ['currency' => 'TTS'])], 'totals' => $totals]] as $bad) {
         $client->responses = [$json($bad, 200)];
         $check($client->paymentHistory($token, $opening) === $unavailable, 'Malformed history list refused');
     }
@@ -165,24 +175,33 @@ try {
     $html = $controller->actionCreate();
     $check($app->response->statusCode === 503 && str_contains($html, 'wallet del negozio'), 'Store without wallet: clear message on the till');
     $app->response->statusCode = 200;
-    $client->responses = [$json(['payments' => [$mine, $other, array_replace($other, ['id' => $uuid(), 'state' => 'expired', 'tx_hash' => null, 'paid_at' => null])]], 200)];
+    $client->responses = [$json(['payments' => [$mine, $other, array_replace($other, ['id' => $uuid(), 'state' => 'expired', 'tx_hash' => null, 'paid_at' => null])], 'totals' => $totals], 200)];
     $html = $controller->actionHistory();
     $check(is_string($html) && str_contains($html, 'Storico incassi') && str_contains($html, '12.34 TTS') && str_contains($html, 'Scaduto')
         && substr_count(urldecode($html), 'payment/receipt') === 1
         && str_contains(urldecode($html), $other['id']) && !str_contains($html, $token), 'History page: states, one receipt link for the paid item, no token');
     $check(str_contains(urldecode($html), 'id=' . $pending['id']) && str_contains($html, 'Apri'), 'History: own pending payment links to its page');
+    $check(str_contains($html, 'Incassato oggi') && str_contains($html, '5,00 TTS') && str_contains($html, '1,00 EUR') && str_contains($html, 'Incassi: 1 &middot; 0.00024680 BTC'),
+        'History totals of today: TTS and BTC per method, BTC also in BTC');
+    $client->responses = [$json(['payments' => [$btcItem, $mine], 'totals' => $totals], 200)];
+    $html = $controller->actionHistory();
+    $check(str_contains($html, 'data-method="btc"') && str_contains($html, '&#8383;') && str_contains($html, '1.00 EUR') && str_contains($html, 'Confermato')
+        && str_contains($html, '0.00024680 BTC · 1 BTC = 61.700,00 EUR') && substr_count(urldecode($html), 'payment/receipt') === 0, 'History: BTC item with symbol, state, BTC paid and rate (no TTS receipt link)');
+    $client->responses = [$json(['payments' => [], 'totals' => ['since' => time(), 'tts' => ['count' => 0, 'amount' => '0.00'], 'btc' => []]], 200)];
+    $html = $controller->actionHistory();
+    $check(str_contains($html, 'Nessun incasso oggi') && str_contains($html, 'Nessun incasso su questo POS'), 'History empty: no totals today, no payments');
     $client->responses = [['status' => 503, 'type' => 'application/json', 'body' => '{}']];
     $html = $controller->actionHistory();
     $check($app->response->statusCode === 503 && str_contains($html, 'storico non disponibile'), 'History with Napay unreachable: warning');
     $app->response->statusCode = 200;
-    $client->responses = [$json(['payments' => [$mine, $other]], 200)];
+    $client->responses = [$json(['payments' => [$mine, $other], 'totals' => $totals], 200)];
     $response = $controller->actionReceipt($other['id']);
     $pdf = $response->content ?? stream_get_contents($response->stream[0]);
     $check(str_starts_with((string) $pdf, '%PDF-') && end($client->sent)[0] === $base . '/openings/' . $opening['id'] . '/payments', 'Receipt of a paid payment from the terminal history');
     $app->response->clear();
     foreach (['not paid' => $mine['id'], 'not in history' => $uuid()] as $label => $id) {
         $app->operatorSession->keepOpening($opening, 'Cassa');
-        $client->responses = [$json(['payments' => [$mine, $other]], 200)];
+        $client->responses = [$json(['payments' => [$mine, $other], 'totals' => $totals], 200)];
         if ($label === 'not paid') $app->session->remove('pos.payments');
         try { $controller->actionReceipt($id); $check(false, 'No receipt from history: ' . $label); } catch (yii\web\NotFoundHttpException $e) { $check(true, 'No receipt from history: ' . $label); }
     }

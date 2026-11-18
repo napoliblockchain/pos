@@ -4,6 +4,9 @@ namespace app\components;
 /** SIP-021: bounded, verified server-to-server login; never returns upstream error text. */
 class NapayLoginClient extends \yii\base\Component
 {
+    /** Corpo massimo di una risposta di Napay (storico con 50 voci e totali). */
+    private const MAX_BODY = 32768;
+
     public $baseUrl = 'https://napay.local/api/pos/v1';
     public $caFile = '/run/pos-secrets/ca.crt';
     public $clientKeyFile = '/run/pos-secrets/client-key';
@@ -245,17 +248,42 @@ class NapayLoginClient extends \yii\base\Component
             static fn($data) => self::validHistory($data), 'payments');
     }
 
-    /** Storico come restituito da Napay: solo la lista, voci con otto campi esatti, mai QR o destinatario. */
+    /**
+     * Storico come restituito da Napay (SIP-033 passo 5): voci TTS e BTC con undici campi esatti, mai QR, indirizzo o
+     * fattura; totali di oggi per metodo (TTS pagati, BTC ricevuti per valuta con i BTC).
+     */
     public static function validHistory($data): bool
     {
-        if (!is_array($data) || array_keys($data) !== ['payments'] || !is_array($data['payments']) || !array_is_list($data['payments']) || count($data['payments']) > 50) return false;
+        if (!is_array($data) || array_keys($data) !== ['payments', 'totals'] || !is_array($data['payments']) || !array_is_list($data['payments']) || count($data['payments']) > 50) return false;
+        $sats = static fn($v): bool => is_string($v) && preg_match('/^[0-9]{1,8}\.[0-9]{8}$/D', $v) === 1;
         foreach ($data['payments'] as $item) {
-            if (!is_array($item) || array_keys($item) !== ['id', 'amount', 'currency', 'state', 'created_at', 'paid_at', 'tx_hash', 'own']) return false;
-            $paid = $item['state'] === 'paid';
-            if (!self::uuid($item['id']) || $item['currency'] !== 'TTS' || !is_string($item['amount']) || preg_match('/^(?:0|[1-9][0-9]{0,3})\.[0-9]{2}$/D', $item['amount']) !== 1
-                || !in_array($item['state'], ['pending', 'paid', 'expired', 'cancelled'], true) || !is_int($item['created_at']) || $item['created_at'] < 1 || !is_bool($item['own'])
-                || !($paid ? is_string($item['tx_hash']) && preg_match('/^0x[0-9a-f]{64}$/D', $item['tx_hash']) === 1 && is_int($item['paid_at'])
-                    : $item['tx_hash'] === null && $item['paid_at'] === null)) return false;
+            if (!is_array($item) || array_keys($item) !== ['id', 'method', 'amount', 'currency', 'state', 'created_at', 'paid_at', 'tx_hash', 'rate', 'paid_btc', 'own']) return false;
+            if (!self::uuid($item['id']) || !is_string($item['amount']) || preg_match('/^(?:0|[1-9][0-9]{0,3})\.[0-9]{2}$/D', $item['amount']) !== 1
+                || !is_int($item['created_at']) || $item['created_at'] < 1 || !is_bool($item['own'])) return false;
+            if ($item['method'] === 'tts') {
+                $paid = $item['state'] === 'paid';
+                if ($item['currency'] !== 'TTS' || !in_array($item['state'], ['pending', 'paid', 'expired', 'cancelled'], true) || $item['rate'] !== null || $item['paid_btc'] !== null
+                    || !($paid ? is_string($item['tx_hash']) && preg_match('/^0x[0-9a-f]{64}$/D', $item['tx_hash']) === 1 && is_int($item['paid_at'])
+                        : $item['tx_hash'] === null && $item['paid_at'] === null)) return false;
+            } elseif ($item['method'] === 'btc') {
+                $received = in_array($item['state'], ['processing', 'settled'], true);
+                if (!in_array($item['currency'], ['EUR', 'USD'], true) || $item['tx_hash'] !== null
+                    || !in_array($item['state'], ['creating', 'pending', 'processing', 'settled', 'expired', 'invalid', 'failed', 'reconcile_required'], true)
+                    || ($received ? !is_int($item['paid_at']) : $item['paid_at'] !== null && !is_int($item['paid_at']))
+                    || ($item['rate'] !== null && (!is_string($item['rate']) || preg_match('/^[0-9]{1,11}\.[0-9]{2}$/D', $item['rate']) !== 1))
+                    || ($item['paid_btc'] !== null && !$sats($item['paid_btc']))) return false;
+            } else {
+                return false;
+            }
+        }
+        $t = $data['totals'];
+        $money = static fn($v): bool => is_string($v) && preg_match('/^(?:0|[1-9][0-9]{0,9})\.[0-9]{2}$/D', $v) === 1;
+        if (!is_array($t) || array_keys($t) !== ['since', 'tts', 'btc'] || !is_int($t['since']) || $t['since'] < 1
+            || !is_array($t['tts']) || array_keys($t['tts']) !== ['count', 'amount'] || !is_int($t['tts']['count']) || $t['tts']['count'] < 0 || !$money($t['tts']['amount'])
+            || !is_array($t['btc']) || !array_is_list($t['btc']) || count($t['btc']) > 2) return false;
+        foreach ($t['btc'] as $row) {
+            if (!is_array($row) || array_keys($row) !== ['currency', 'count', 'amount', 'btc'] || !in_array($row['currency'], ['EUR', 'USD'], true)
+                || !is_int($row['count']) || $row['count'] < 1 || !$money($row['amount']) || !$sats($row['btc'])) return false;
         }
         return true;
     }
@@ -292,12 +320,13 @@ class NapayLoginClient extends \yii\base\Component
             $payload = $body === null ? '' : json_encode($body, JSON_THROW_ON_ERROR);
             $response = $this->transport($this->baseUrl . $path, $method, $payload, trim($key), null, $token, $idempotencyKey);
             $status = $response['status'] ?? null;
-            if (!empty($response['setCookie']) || strlen($response['body'] ?? '') > 16384) return $this->unavailable();
+            if (!empty($response['setCookie']) || strlen($response['body'] ?? '') > self::MAX_BODY) return $this->unavailable();
             if (!preg_match('~^application/json(?:\s*;|$)~i', $response['type'] ?? '')) return $this->unavailable();
-            $data = json_decode($response['body'], true, 4, JSON_THROW_ON_ERROR);
+            // profondità 5: totali dello storico (radice > totals > btc > voce > valori)
+            $data = json_decode($response['body'], true, 5, JSON_THROW_ON_ERROR);
             if (in_array($status, $success, true)) {
                 if (!$valid($data)) return $this->unavailable();
-                return ['ok' => true, $field => $field === 'payments' ? $data['payments'] : $data];
+                return $field === 'payments' ? ['ok' => true, 'payments' => $data['payments'], 'totals' => $data['totals']] : ['ok' => true, $field => $data];
             }
             $code = is_array($data) ? ($data['error']['code'] ?? null) : null;
             $known = [401 => ['invalid_token'], 404 => ['not_found'], 409 => ['opening_invalid', 'idempotency_conflict', 'payment_not_pending'],
@@ -374,7 +403,8 @@ class NapayLoginClient extends \yii\base\Component
                 CURLOPT_PROTOCOLS => CURLPROTO_HTTPS, CURLOPT_SSL_VERIFYPEER => true, CURLOPT_SSL_VERIFYHOST => 2,
                 CURLOPT_CAINFO => $this->caFile,
                 CURLOPT_WRITEFUNCTION => static function ($handle, string $chunk) use (&$raw): int {
-                    if (strlen($raw) + strlen($chunk) > 16384) return 0;
+                    // storico: 50 voci TTS/BTC con i totali (SIP-033 passo 5) stanno sotto i 32 KB
+                    if (strlen($raw) + strlen($chunk) > self::MAX_BODY) return 0;
                     $raw .= $chunk; return strlen($chunk);
                 },
                 CURLOPT_HEADERFUNCTION => static function ($handle, string $header) use (&$retry, &$setCookie): int {
