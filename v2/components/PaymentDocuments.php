@@ -18,7 +18,7 @@ final class PaymentDocuments
 
     /**
      * Ricevuta A7 di un pagamento concluso.
-     * @param array{label:string, operator:?string, amount:string, paid_at:int, id:string, tx_hash:string} $receipt
+     * @param array{label:string, operator:?string, amount:string, fiat_amount:string, rate:string, paid_at:int, id:string, tx_hash:string} $receipt
      */
     public static function receiptPdf(array $receipt): string
     {
@@ -28,6 +28,8 @@ final class PaymentDocuments
             $receipt['operator'] === null ? null : ['', 8, \Yii::t('app', 'Operator: {name}', ['name' => $receipt['operator']])],
             ['', 8, self::date($receipt['paid_at'])],
             ['B', 14, $receipt['amount'] . ' TTS'],
+            ['', 8, self::money($receipt['fiat_amount']) . ' EUR'],
+            ['', 7, \Yii::t('app', '1 TTS = {rate} EUR', ['rate' => self::money($receipt['rate'])])],
             ['', 7, \Yii::t('app', 'Payment {id}', ['id' => substr($receipt['id'], 0, 8)])],
             ['', 7, \Yii::t('app', 'Transaction')],
             ['', 7, substr($receipt['tx_hash'], 0, 12) . '...' . substr($receipt['tx_hash'], -10)],

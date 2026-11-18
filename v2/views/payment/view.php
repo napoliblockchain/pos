@@ -20,6 +20,8 @@ $states = [
 <?= Html::a(Html::encode(Yii::t('app', 'Retry')), Yii::$app->request->url, ['class' => 'button']) ?>
 <?php else: ?>
 <p class="payment-amount"><?= Html::encode($payment['amount']) ?> <span>TTS</span></p>
+<?php // prezzo digitato in EUR e cambio della richiesta ?>
+<p class="payment-meta" data-tts-rate><?= Html::encode($payment['fiat_amount'] . ' EUR · ' . Yii::t('app', '1 TTS = {rate} EUR', ['rate' => app\components\PaymentDocuments::money($payment['rate'])])) ?></p>
 <p class="payment-state payment-<?= Html::encode($payment['state']) ?>" role="status" data-payment-state><?= Html::encode($states[$payment['state']]) ?></p>
 <?php if ($qr !== null): ?>
 <figure class="payment-qr"><?= $qr ?><figcaption><?= Html::encode(Yii::t('app', 'Scan with the TTS wallet: amount and reference are already filled in.')) ?></figcaption></figure>

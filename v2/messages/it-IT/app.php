@@ -105,4 +105,5 @@ return [
     'Payments: {count}' => 'Incassi: {count}',
     'Paid in Bitcoin' => 'Pagato in Bitcoin',
     'Payment received, waiting for the network confirmation' => 'Pagamento ricevuto, in attesa della conferma della rete',
+    '1 TTS = {rate} EUR' => '1 TTS = {rate} EUR',
 ];

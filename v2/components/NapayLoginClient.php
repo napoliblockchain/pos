@@ -261,17 +261,19 @@ class NapayLoginClient extends \yii\base\Component
         if (!is_array($data) || array_keys($data) !== ['payments', 'totals'] || !is_array($data['payments']) || !array_is_list($data['payments']) || count($data['payments']) > 50) return false;
         $sats = static fn($v): bool => is_string($v) && preg_match('/^[0-9]{1,8}\.[0-9]{8}$/D', $v) === 1;
         foreach ($data['payments'] as $item) {
-            if (!is_array($item) || array_keys($item) !== ['id', 'method', 'amount', 'currency', 'state', 'created_at', 'paid_at', 'tx_hash', 'rate', 'paid_btc', 'own']) return false;
+            if (!is_array($item) || array_keys($item) !== ['id', 'method', 'amount', 'currency', 'fiat_amount', 'state', 'created_at', 'paid_at', 'tx_hash', 'rate', 'paid_btc', 'own']) return false;
             if (!self::uuid($item['id']) || !is_string($item['amount']) || preg_match('/^(?:0|[1-9][0-9]{0,3})\.[0-9]{2}$/D', $item['amount']) !== 1
+                || !is_string($item['fiat_amount']) || preg_match('/^(?:0|[1-9][0-9]{0,3})\.[0-9]{2}$/D', $item['fiat_amount']) !== 1
                 || !is_int($item['created_at']) || $item['created_at'] < 1 || !is_bool($item['own'])) return false;
             if ($item['method'] === 'tts') {
                 $paid = $item['state'] === 'paid';
-                if ($item['currency'] !== 'TTS' || !in_array($item['state'], ['pending', 'paid', 'expired', 'cancelled'], true) || $item['rate'] !== null || $item['paid_btc'] !== null
+                if ($item['currency'] !== 'TTS' || !in_array($item['state'], ['pending', 'paid', 'expired', 'cancelled'], true) || $item['paid_btc'] !== null
+                    || !is_string($item['rate']) || preg_match('/^[0-9]{1,6}\.[0-9]{2}$/D', $item['rate']) !== 1
                     || !($paid ? is_string($item['tx_hash']) && preg_match('/^0x[0-9a-f]{64}$/D', $item['tx_hash']) === 1 && is_int($item['paid_at'])
                         : $item['tx_hash'] === null && $item['paid_at'] === null)) return false;
             } elseif ($item['method'] === 'btc') {
                 $received = in_array($item['state'], ['processing', 'settled'], true);
-                if (!in_array($item['currency'], ['EUR', 'USD'], true) || ($item['tx_hash'] !== null && (!is_string($item['tx_hash']) || preg_match('/^[0-9a-f]{64}$/D', $item['tx_hash']) !== 1))
+                if (!in_array($item['currency'], ['EUR', 'USD'], true) || $item['fiat_amount'] !== $item['amount'] || ($item['tx_hash'] !== null && (!is_string($item['tx_hash']) || preg_match('/^[0-9a-f]{64}$/D', $item['tx_hash']) !== 1))
                     || !in_array($item['state'], ['creating', 'pending', 'processing', 'settled', 'expired', 'invalid', 'failed', 'reconcile_required'], true)
                     || ($received ? !is_int($item['paid_at']) : $item['paid_at'] !== null && !is_int($item['paid_at']))
                     || ($item['rate'] !== null && (!is_string($item['rate']) || preg_match('/^[0-9]{1,11}\.[0-9]{2}$/D', $item['rate']) !== 1))
@@ -283,7 +285,8 @@ class NapayLoginClient extends \yii\base\Component
         $t = $data['totals'];
         $money = static fn($v): bool => is_string($v) && preg_match('/^(?:0|[1-9][0-9]{0,9})\.[0-9]{2}$/D', $v) === 1;
         if (!is_array($t) || array_keys($t) !== ['since', 'tts', 'btc'] || !is_int($t['since']) || $t['since'] < 1
-            || !is_array($t['tts']) || array_keys($t['tts']) !== ['count', 'amount'] || !is_int($t['tts']['count']) || $t['tts']['count'] < 0 || !$money($t['tts']['amount'])
+            || !is_array($t['tts']) || array_keys($t['tts']) !== ['count', 'amount', 'fiat_amount'] || !is_int($t['tts']['count']) || $t['tts']['count'] < 0 || !$money($t['tts']['amount'])
+            || !$money($t['tts']['fiat_amount'])
             || !is_array($t['btc']) || !array_is_list($t['btc']) || count($t['btc']) > 2) return false;
         foreach ($t['btc'] as $row) {
             if (!is_array($row) || array_keys($row) !== ['currency', 'count', 'amount', 'btc'] || !in_array($row['currency'], ['EUR', 'USD'], true)
@@ -295,9 +298,12 @@ class NapayLoginClient extends \yii\base\Component
     /** Pagamento come restituito da Napay: dieci campi esatti, QR coerente con indirizzo e importo, esito coerente con lo stato. */
     public static function validPayment($payment): bool
     {
-        if (!is_array($payment) || array_keys($payment) !== ['id', 'opening_id', 'amount', 'currency', 'state', 'to_address', 'expires_at', 'qr', 'tx_hash', 'paid_at']) return false;
+        if (!is_array($payment) || array_keys($payment) !== ['id', 'opening_id', 'amount', 'currency', 'fiat_amount', 'fiat_currency', 'rate', 'state', 'to_address', 'expires_at', 'qr', 'tx_hash', 'paid_at']) return false;
         $paid = $payment['state'] === 'paid';
+        // prezzo in EUR e cambio (EUR per 1 TTS) della richiesta
         return self::uuid($payment['id']) && self::uuid($payment['opening_id']) && $payment['currency'] === 'TTS'
+            && is_string($payment['fiat_amount']) && preg_match('/^(?:0|[1-9][0-9]{0,3})\.[0-9]{2}$/D', $payment['fiat_amount']) === 1 && $payment['fiat_currency'] === 'EUR'
+            && is_string($payment['rate']) && preg_match('/^[0-9]{1,6}\.[0-9]{2}$/D', $payment['rate']) === 1 && $payment['rate'] !== '0.00'
             && is_string($payment['amount']) && preg_match('/^(?:0|[1-9][0-9]{0,3})\.[0-9]{2}$/D', $payment['amount']) === 1
             && in_array($payment['state'], ['pending', 'paid', 'expired', 'cancelled'], true)
             && is_string($payment['to_address']) && preg_match('/^0x[0-9a-fA-F]{40}$/D', $payment['to_address']) === 1

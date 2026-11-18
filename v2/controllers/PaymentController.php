@@ -209,7 +209,7 @@ class PaymentController extends Controller
         $payment = $owned ? ($result['payment'] ?? null) : (array_column($result['payments'] ?? [], null, 'id')[$id] ?? null);
         if ($payment === null || $payment['state'] !== 'paid') throw new NotFoundHttpException(Yii::t('app', 'Receipt not available.'));
         $pdf = PaymentDocuments::receiptPdf(['label' => $opening['label'], 'operator' => $owned ? $operator['name'] : null, 'amount' => $payment['amount'],
-            'paid_at' => $payment['paid_at'], 'id' => $payment['id'], 'tx_hash' => $payment['tx_hash']]);
+            'fiat_amount' => $payment['fiat_amount'], 'rate' => $payment['rate'], 'paid_at' => $payment['paid_at'], 'id' => $payment['id'], 'tx_hash' => $payment['tx_hash']]);
         return Yii::$app->response->sendContentAsFile($pdf, 'ricevuta-' . substr($payment['id'], 0, 8) . '.pdf',
             ['mimeType' => 'application/pdf', 'inline' => true]);
     }

@@ -14,7 +14,7 @@ $btc = !empty($methods['btc']);
 <?php if (!empty($paymentError)): ?><p class="error" role="alert"><?= Html::encode($paymentError) ?></p><?php endif ?>
 <?= Html::beginForm(['/payment/create'], 'post', ['id' => 'amount-form']) ?>
 <?= Html::hiddenInput('key', OperatorSession::newKey()) ?>
-<label for="amount"><?= Html::encode(Yii::t('app', 'Amount')) ?> <span><?= Html::encode($btc ? 'TTS / ' . $methods['btc_currency'] : 'TTS') ?></span></label>
+<label for="amount"><?= Html::encode(Yii::t('app', 'Amount')) ?> <span><?= Html::encode($btc && $methods['btc_currency'] !== 'EUR' ? 'EUR / ' . $methods['btc_currency'] : 'EUR') ?></span></label>
 <?= Html::activeTextInput($model, 'amount', ['id' => 'amount', 'inputmode' => 'decimal', 'autocomplete' => 'off', 'placeholder' => '0,00', 'maxlength' => 7, 'aria-describedby' => 'amount-error']) ?>
 <div id="amount-error" class="error" role="alert"><?= Html::error($model, 'amount') ?></div>
 <div class="keypad" aria-label="<?= Html::encode(Yii::t('app', 'Amount keys')) ?>">

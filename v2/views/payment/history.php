@@ -45,7 +45,7 @@ $time = static fn(int $at): string => (new DateTimeImmutable('@' . $at))->setTim
 <?php else: ?>
 <?php if ($totals['tts']['count'] > 0): ?>
 <p class="history-total"><?= $symbol('tts') ?> <strong><?= Html::encode($money($totals['tts']['amount'])) ?> TTS</strong>
-<span><?= Html::encode(Yii::t('app', 'Payments: {count}', ['count' => $totals['tts']['count']])) ?></span></p>
+<span><?= Html::encode(Yii::t('app', 'Payments: {count}', ['count' => $totals['tts']['count']])) ?> &middot; <?= Html::encode($money($totals['tts']['fiat_amount'])) ?> EUR</span></p>
 <?php endif ?>
 <?php foreach ($totals['btc'] as $row): ?>
 <p class="history-total"><?= $symbol('btc') ?> <strong><?= Html::encode($money($row['amount'])) ?> <?= Html::encode($row['currency']) ?></strong>
@@ -71,6 +71,9 @@ $time = static fn(int $at): string => (new DateTimeImmutable('@' . $at))->setTim
 <?= Html::a(Html::encode(Yii::t('app', 'Receipt')), ['/payment/btc-receipt', 'id' => $payment['id']], ['target' => '_blank', 'rel' => 'noopener']) ?>
 <?php elseif ($payment['method'] === 'btc' && $payment['state'] === 'pending' && Yii::$app->operatorSession->ownsPayment($payment['id'])): ?>
 <?= Html::a(Html::encode(Yii::t('app', 'Open')), ['/payment/btc-view', 'id' => $payment['id']]) ?>
+<?php endif ?>
+<?php if ($payment['method'] === 'tts'): ?>
+<span class="history-detail"><?= Html::encode($money($payment['fiat_amount']) . ' EUR · ' . Yii::t('app', '1 TTS = {rate} EUR', ['rate' => $money($payment['rate'])])) ?></span>
 <?php endif ?>
 <?php if ($payment['method'] === 'btc' && ($payment['paid_btc'] !== null && $payment['paid_btc'] !== '0.00000000' || $payment['rate'] !== null)): ?>
 <span class="history-detail"><?= Html::encode(implode(' · ', array_filter([

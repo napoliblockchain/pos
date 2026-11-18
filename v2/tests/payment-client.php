@@ -31,7 +31,8 @@ try {
     $base = 'https://napay.local/api/pos/v1';
     $address = '0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed';
     $reference = bin2hex(random_bytes(16));
-    $pending = ['id' => $uuid(), 'opening_id' => $opening['id'], 'amount' => '12.34', 'currency' => 'TTS', 'state' => 'pending', 'to_address' => $address,
+    $pending = ['id' => $uuid(), 'opening_id' => $opening['id'], 'amount' => '12.34', 'currency' => 'TTS', 'fiat_amount' => '12.34', 'fiat_currency' => 'EUR', 'rate' => '1.00',
+        'state' => 'pending', 'to_address' => $address,
         'expires_at' => time() + 900, 'qr' => $address . '&amount=12.34&message=napay:' . $reference, 'tx_hash' => null, 'paid_at' => null];
     $paid = array_replace($pending, ['state' => 'paid', 'tx_hash' => '0x' . str_repeat('ab', 32), 'paid_at' => time()]);
     $key = $uuid();
@@ -44,7 +45,8 @@ try {
     $client->responses = [$json($pending, 200)];
     $check($client->createPayment($token, $opening, 1234, $key)['ok'], 'Idempotent replay (200) accepted');
     foreach ([['opening_id' => $uuid()], ['state' => 'refunded'], ['currency' => 'EUR'], ['amount' => '12.3'], ['qr' => $address . '&amount=99.00&message=napay:' . $reference],
-        ['qr' => '0x' . str_repeat('1', 40) . '&amount=12.34&message=napay:' . $reference], ['tx_hash' => '0x' . str_repeat('ab', 32)], ['expires_at' => '1'], ['extra' => 1]] as $bad) {
+        ['qr' => '0x' . str_repeat('1', 40) . '&amount=12.34&message=napay:' . $reference], ['tx_hash' => '0x' . str_repeat('ab', 32)], ['expires_at' => '1'], ['extra' => 1],
+        ['fiat_currency' => 'USD'], ['rate' => '0.00'], ['rate' => 1.0], ['fiat_amount' => '12.3']] as $bad) {
         $client->responses = [$json(array_merge($pending, $bad), 201)];
         $check($client->createPayment($token, $opening, 1234, $key) === $unavailable, 'Mismatched or malformed payment refused: ' . json_encode(array_keys($bad)));
     }
@@ -78,24 +80,27 @@ try {
     $check($client->cancelPayment($token, $opening, $pending['id']) === ['ok' => false, 'error' => 'payment_not_pending'], 'Cancel of a closed payment: payment_not_pending');
     // --- storico
     // SIP-033 passo 5: voci con il metodo (TTS/BTC) e totali di oggi
-    $other = ['id' => $uuid(), 'method' => 'tts', 'amount' => '5.00', 'currency' => 'TTS', 'state' => 'paid', 'created_at' => time() - 600, 'paid_at' => time() - 590,
-        'tx_hash' => '0x' . str_repeat('cd', 32), 'rate' => null, 'paid_btc' => null, 'own' => false];
-    $mine = ['id' => $pending['id'], 'method' => 'tts', 'amount' => '12.34', 'currency' => 'TTS', 'state' => 'pending', 'created_at' => time(), 'paid_at' => null, 'tx_hash' => null,
-        'rate' => null, 'paid_btc' => null, 'own' => true];
-    $btcItem = ['id' => $uuid(), 'method' => 'btc', 'amount' => '1.00', 'currency' => 'EUR', 'state' => 'settled', 'created_at' => time() - 300, 'paid_at' => time() - 290,
+    // TTS: 5,00 EUR al cambio 1 TTS = 1,25 EUR -> 4,00 TTS
+    $other = ['id' => $uuid(), 'method' => 'tts', 'amount' => '4.00', 'currency' => 'TTS', 'fiat_amount' => '5.00', 'state' => 'paid', 'created_at' => time() - 600, 'paid_at' => time() - 590,
+        'tx_hash' => '0x' . str_repeat('cd', 32), 'rate' => '1.25', 'paid_btc' => null, 'own' => false];
+    $mine = ['id' => $pending['id'], 'method' => 'tts', 'amount' => '12.34', 'currency' => 'TTS', 'fiat_amount' => '12.34', 'state' => 'pending', 'created_at' => time(), 'paid_at' => null, 'tx_hash' => null,
+        'rate' => '1.00', 'paid_btc' => null, 'own' => true];
+    $btcItem = ['id' => $uuid(), 'method' => 'btc', 'amount' => '1.00', 'currency' => 'EUR', 'fiat_amount' => '1.00', 'state' => 'settled', 'created_at' => time() - 300, 'paid_at' => time() - 290,
         'tx_hash' => str_repeat('cd', 32), 'rate' => '61700.00', 'paid_btc' => '0.00024680', 'own' => false];
-    $totals = ['since' => time() - 3600, 'tts' => ['count' => 1, 'amount' => '5.00'], 'btc' => [['currency' => 'EUR', 'count' => 1, 'amount' => '1.00', 'btc' => '0.00024680']]];
+    $totals = ['since' => time() - 3600, 'tts' => ['count' => 1, 'amount' => '4.00', 'fiat_amount' => '5.00'], 'btc' => [['currency' => 'EUR', 'count' => 1, 'amount' => '1.00', 'btc' => '0.00024680']]];
     $client->responses = [$json(['payments' => [$mine, $other], 'totals' => $totals], 200)];
     $check($client->paymentHistory($token, $opening) === ['ok' => true, 'payments' => [$mine, $other], 'totals' => $totals] && end($client->sent)[1] === 'GET' && end($client->sent)[2] === ''
         && end($client->sent)[0] === $base . '/openings/' . $opening['id'] . '/payments', 'History: GET on the opening, list returned');
     foreach ([['qr' => 'x'], ['to_address' => $address], ['own' => 1], ['state' => 'refunded'], ['tx_hash' => null], ['amount' => '5'], ['created_at' => '1'],
-        ['method' => 'eth'], ['rate' => '61700.00'], ['paid_btc' => '0.00000001'], ['method' => 'btc']] as $bad) {
+        ['method' => 'eth'], ['rate' => null], ['rate' => '1.2'], ['fiat_amount' => '5'], ['paid_btc' => '0.00000001'], ['method' => 'btc']] as $bad) {
         $client->responses = [$json(['payments' => [$mine, array_merge($other, $bad)], 'totals' => $totals], 200)];
         $check($client->paymentHistory($token, $opening) === $unavailable, 'Malformed history item refused: ' . json_encode(array_keys($bad)));
     }
     foreach ([['payments' => array_fill(0, 51, $other), 'totals' => $totals], ['payments' => [$other], 'totals' => $totals, 'next' => 1], ['payments' => ['a' => $other], 'totals' => $totals], [$other],
         ['payments' => [$other]], ['payments' => [$other], 'totals' => ['tts' => $totals['tts']] + $totals], ['payments' => [$other], 'totals' => array_replace($totals, ['btc' => [['currency' => 'BTC'] + $totals['btc'][0]]])],
-        ['payments' => [$other], 'totals' => array_replace($totals, ['tts' => ['count' => -1, 'amount' => '5.00']])], ['payments' => [array_replace($btcItem, ['tx_hash' => '0x' . str_repeat('ab', 32)])], 'totals' => $totals],
+        ['payments' => [$other], 'totals' => array_replace($totals, ['tts' => ['count' => -1, 'amount' => '4.00', 'fiat_amount' => '5.00']])],
+        ['payments' => [$other], 'totals' => array_replace($totals, ['tts' => ['count' => 1, 'amount' => '4.00']])],
+        ['payments' => [array_replace($btcItem, ['fiat_amount' => '2.00'])], 'totals' => $totals], ['payments' => [array_replace($btcItem, ['tx_hash' => '0x' . str_repeat('ab', 32)])], 'totals' => $totals],
         ['payments' => [array_replace($btcItem, ['tx_hash' => 'not-a-txid'])], 'totals' => $totals],
         ['payments' => [array_replace($btcItem, ['paid_at' => null])], 'totals' => $totals], ['payments' => [array_replace($btcItem, ['currency' => 'TTS'])], 'totals' => $totals]] as $bad) {
         $client->responses = [$json($bad, 200)];
@@ -134,6 +139,7 @@ try {
     $client->responses = [$json($pending, 200)];
     $html = $controller->actionView($pending['id']);
     $check(str_contains($html, 'data-payment-request="/payment/request?id=' . $pending['id'] . '"') && !str_contains($html, 'napay:' . $reference), 'Preview copy button present, reference not in the page');
+    $check(str_contains($html, '12.34 EUR · 1 TTS = 1,00 EUR'), 'TTS page: price in EUR and rate of the request');
     $check(is_string($html) && str_contains($html, '<svg') && !str_contains($html, '<?xml') && !str_contains($html, '<desc') && str_contains($html, '12.34')
         && str_contains($html, 'data-payment-status') && str_contains($html, 'Negozio &lt;b&gt; - Cassa') && !str_contains($html, $token)
         && str_contains($html, 'In attesa del pagamento'), 'Pending page: inline QR without prolog or text, polling hook, encoded label, no token');
@@ -182,13 +188,14 @@ try {
         && substr_count(urldecode($html), 'payment/receipt') === 1
         && str_contains(urldecode($html), $other['id']) && !str_contains($html, $token), 'History page: states, one receipt link for the paid item, no token');
     $check(str_contains(urldecode($html), 'id=' . $pending['id']) && str_contains($html, 'Apri'), 'History: own pending payment links to its page');
-    $check(str_contains($html, 'Incassato oggi') && str_contains($html, '5,00 TTS') && str_contains($html, '1,00 EUR') && str_contains($html, 'Incassi: 1 &middot; 0.00024680 BTC'),
+    $check(str_contains($html, 'Incassato oggi') && str_contains($html, '4,00 TTS') && str_contains($html, 'Incassi: 1 &middot; 5,00 EUR') && str_contains($html, '1,00 EUR')
+        && str_contains($html, 'Incassi: 1 &middot; 0.00024680 BTC') && str_contains($html, '5,00 EUR · 1 TTS = 1,25 EUR'),
         'History totals of today: TTS and BTC per method, BTC also in BTC');
     $client->responses = [$json(['payments' => [$btcItem, $mine], 'totals' => $totals], 200)];
     $html = $controller->actionHistory();
     $check(str_contains($html, 'data-method="btc"') && str_contains($html, '&#8383;') && str_contains($html, '1.00 EUR') && str_contains($html, 'Confermato')
         && str_contains($html, '0.00024680 BTC · 1 BTC = 61.700,00 EUR') && substr_count(urldecode($html), 'payment/receipt') === 0, 'History: BTC item with symbol, state, BTC paid and rate (no TTS receipt link)');
-    $client->responses = [$json(['payments' => [], 'totals' => ['since' => time(), 'tts' => ['count' => 0, 'amount' => '0.00'], 'btc' => []]], 200)];
+    $client->responses = [$json(['payments' => [], 'totals' => ['since' => time(), 'tts' => ['count' => 0, 'amount' => '0.00', 'fiat_amount' => '0.00'], 'btc' => []]], 200)];
     $html = $controller->actionHistory();
     $check(str_contains($html, 'Nessun incasso oggi') && str_contains($html, 'Nessun incasso su questo POS'), 'History empty: no totals today, no payments');
     $client->responses = [['status' => 503, 'type' => 'application/json', 'body' => '{}']];
@@ -250,11 +257,11 @@ try {
     $client->responses = [$json($methods, 200)];
     $html = $controller->actionBtcCreate();
     $check(is_string($html) && $app->response->statusCode === 422 && str_contains($html, 'Incassa in BTC') && str_contains(urldecode($html), 'payment/btc-create')
-        && str_contains($html, 'TTS / EUR') && str_contains($html, 'Incassa TTS'), 'Till: BTC button (formaction) and currency when Napay offers BTC');
+        && str_contains($html, '<span>EUR</span>') && str_contains($html, 'Incassa TTS'), 'Till: BTC button (formaction); price typed in EUR for TTS and BTC (EUR shop)');
     $app->response->statusCode = 200;
     $client->responses = [$json(['tts' => true, 'btc' => false, 'btc_currency' => null], 200)];
     $html = $controller->actionBtcCreate();
-    $check(!str_contains($html, 'Incassa in BTC') && !str_contains($html, 'TTS / ') && str_contains($html, 'Incassa TTS'), 'Till: no BTC button when not available');
+    $check(!str_contains($html, 'Incassa in BTC') && str_contains($html, '<span>EUR</span>') && str_contains($html, 'Incassa TTS'), 'Till: no BTC button when not available, price in EUR');
     $app->response->statusCode = 200;
     $client->responses = [[]];
     $html = $controller->actionBtcCreate();
