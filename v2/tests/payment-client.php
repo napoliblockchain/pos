@@ -291,6 +291,29 @@ try {
     }
     $client->responses = [$json($btcProcessing, 200)];
     $check($controller->actionBtcStatus($btcPending['id']) === ['status' => 'processing'], 'BTC status JSON carries only the state');
+    // SIP-033 passo 5: ricevuta BTC (ricevuto o confermato), dalla sessione o dallo storico del terminale
+    $pdfOf = static fn($r) => (string) ($r->content ?? stream_get_contents($r->stream[0]));
+    $client->responses = [$json($btcSettled, 200)];
+    $pdf = $pdfOf($controller->actionBtcReceipt($btcPending['id']));
+    $check(str_starts_with($pdf, '%PDF-') && end($client->sent)[0] === $base . '/btc-payments/' . $btcPending['id'] && !str_contains($pdf, $addr),
+        'BTC receipt of an own confirmed payment (state read again from Napay), no address');
+    $app->response->clear();
+    $client->responses = [$json($btcProcessing, 200)];
+    $check(str_starts_with($pdfOf($controller->actionBtcReceipt($btcPending['id'])), '%PDF-'), 'BTC receipt also when received (D1: the sale is closed)');
+    $app->response->clear();
+    $foreign = array_replace($btcItem, ['id' => $uuid()]);
+    $client->responses = [$json(['payments' => [$foreign, $mine], 'totals' => $totals], 200)];
+    $check(str_starts_with($pdfOf($controller->actionBtcReceipt($foreign['id'])), '%PDF-') && end($client->sent)[0] === $base . '/openings/' . $opening['id'] . '/payments',
+        'BTC receipt of another session payment from the terminal history');
+    $app->response->clear();
+    foreach (['pending' => [$json($btcPending, 200)], 'TTS item' => [$json(['payments' => [$mine, $other], 'totals' => $totals], 200)],
+        'not in history' => [$json(['payments' => [$foreign], 'totals' => $totals], 200)]] as $label => $responses) {
+        $client->responses = $responses;
+        $id = $label === 'pending' ? $btcPending['id'] : ($label === 'TTS item' ? $other['id'] : $uuid());
+        try { $controller->actionBtcReceipt($id); $check(false, 'No BTC receipt: ' . $label); } catch (yii\web\NotFoundHttpException $e) { $check(true, 'No BTC receipt: ' . $label); }
+    }
+    $client->responses = [$json($btcSettled, 200)];
+    $check(str_contains(urldecode($controller->actionBtcView($btcPending['id'])), 'payment/btc-receipt'), 'Confirmed BTC page links its receipt');
     $check($controller->actionBtcStatus($uuid()) === ['status' => 'closed'], 'BTC status of a payment not created here: closed, no call');
     try { $controller->actionBtcView($uuid()); $check(false, 'Foreign BTC payment page is 404'); } catch (yii\web\NotFoundHttpException $e) { $check(true, 'Foreign BTC payment page is 404'); }
     $app->request->setBodyParams(['AmountForm' => ['amount' => '5'], 'key' => $uuid()]);

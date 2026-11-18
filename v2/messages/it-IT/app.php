@@ -103,4 +103,6 @@ return [
     'Collected today' => 'Incassato oggi',
     'No payments collected today.' => 'Nessun incasso oggi.',
     'Payments: {count}' => 'Incassi: {count}',
+    'Paid in Bitcoin' => 'Pagato in Bitcoin',
+    'Payment received, waiting for the network confirmation' => 'Pagamento ricevuto, in attesa della conferma della rete',
 ];

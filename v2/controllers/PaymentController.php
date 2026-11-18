@@ -22,7 +22,7 @@ class PaymentController extends Controller
     {
         return ['verbs' => ['class' => VerbFilter::class, 'actions' => ['create' => ['POST'], 'view' => ['GET'], 'status' => ['GET'],
             'cancel' => ['POST'], 'receipt' => ['GET'], 'history' => ['GET'], 'request' => ['GET'],
-            'btc-create' => ['POST'], 'btc-view' => ['GET'], 'btc-status' => ['GET']]]];
+            'btc-create' => ['POST'], 'btc-view' => ['GET'], 'btc-status' => ['GET'], 'btc-receipt' => ['GET']]]];
     }
 
     public function beforeAction($action)
@@ -210,6 +210,31 @@ class PaymentController extends Controller
         if ($payment === null || $payment['state'] !== 'paid') throw new NotFoundHttpException(Yii::t('app', 'Receipt not available.'));
         $pdf = PaymentDocuments::receiptPdf(['label' => $opening['label'], 'operator' => $owned ? $operator['name'] : null, 'amount' => $payment['amount'],
             'paid_at' => $payment['paid_at'], 'id' => $payment['id'], 'tx_hash' => $payment['tx_hash']]);
+        return Yii::$app->response->sendContentAsFile($pdf, 'ricevuta-' . substr($payment['id'], 0, 8) . '.pdf',
+            ['mimeType' => 'application/pdf', 'inline' => true]);
+    }
+
+    /**
+     * SIP-033 passo 5: ricevuta PDF di un pagamento BTC ricevuto (D1: chiude la vendita) o confermato, riletto da Napay:
+     * della sessione (stato aggiornato) o dallo storico del terminale (operatore non indicato).
+     */
+    public function actionBtcReceipt(string $id)
+    {
+        [$operator, $opening] = $this->context();
+        if ($operator === null) return $this->redirect(['/site/login']);
+        if ($opening === null) return $this->redirect(['/site/account']);
+        $owned = Yii::$app->operatorSession->ownsPayment($id);
+        $result = $owned ? Yii::$app->napayLogin->viewBtcPayment($operator['token'], $opening['opening'], $id)
+            : Yii::$app->napayLogin->paymentHistory($operator['token'], $opening['opening']);
+        if (!$result['ok'] && ($redirect = $this->leave($result['error'], $owned))) return $redirect;
+        $payment = $owned ? ($result['payment'] ?? null) : (array_column($result['payments'] ?? [], null, 'id')[$id] ?? null);
+        if ($payment === null || ($payment['method'] ?? 'btc') !== 'btc' || !in_array($payment['state'], ['processing', 'settled'], true)) {
+            throw new NotFoundHttpException(Yii::t('app', 'Receipt not available.'));
+        }
+        $paidAt = $owned ? ($payment['processing_at'] ?? $payment['settled_at']) : $payment['paid_at'];
+        $pdf = PaymentDocuments::btcReceiptPdf(['label' => $opening['label'], 'operator' => $owned ? $operator['name'] : null, 'amount' => $payment['amount'],
+            'currency' => $payment['currency'], 'paid_at' => (int) $paidAt, 'id' => $payment['id'], 'settled' => $payment['state'] === 'settled',
+            'paid_btc' => $payment['paid_btc'] === '0.00000000' ? null : $payment['paid_btc'], 'rate' => $payment['rate']]);
         return Yii::$app->response->sendContentAsFile($pdf, 'ricevuta-' . substr($payment['id'], 0, 8) . '.pdf',
             ['mimeType' => 'application/pdf', 'inline' => true]);
     }
