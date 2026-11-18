@@ -22,10 +22,9 @@ $btc = !empty($methods['btc']);
 <button type="button" data-key="<?= Html::encode($key) ?>" aria-label="<?= $key === 'back' ? Html::encode(Yii::t('app', 'Delete last digit')) : Html::encode($key) ?>"><?= $key === 'back' ? '&larr;' : Html::encode($key) ?></button>
 <?php endforeach ?>
 </div>
-<div class="actions"><button type="button" data-clear><?= Html::encode(Yii::t('app', 'Clear')) ?></button><button type="submit" class="primary"><?= Html::encode(Yii::t('app', 'Collect TTS')) ?></button></div>
-<?php if ($btc): ?>
-<div class="actions single"><button type="submit" class="primary btc" formaction="<?= Html::encode(\yii\helpers\Url::to(['/payment/btc-create'])) ?>" data-pay-btc><?= Html::encode(Yii::t('app', 'Collect in BTC')) ?></button></div>
-<?php endif ?>
+<?php // metodi come simboli (stella TTS, B di Bitcoin) per stare in una riga; il nome resta per lettori di schermo e tooltip ?>
+<div class="actions<?= $btc ? ' with-btc' : '' ?>"><button type="button" data-clear><?= Html::encode(Yii::t('app', 'Clear')) ?></button><button type="submit" class="primary pay-symbol tts" aria-label="<?= Html::encode(Yii::t('app', 'Collect TTS')) ?>" title="<?= Html::encode(Yii::t('app', 'Collect TTS')) ?>"><span aria-hidden="true">&#9733;</span></button>
+<?php if ($btc): ?><button type="submit" class="primary pay-symbol btc" formaction="<?= Html::encode(\yii\helpers\Url::to(['/payment/btc-create'])) ?>" data-pay-btc aria-label="<?= Html::encode(Yii::t('app', 'Collect in BTC')) ?>" title="<?= Html::encode(Yii::t('app', 'Collect in BTC')) ?>"><span aria-hidden="true">&#8383;</span></button><?php endif ?></div>
 <?= Html::endForm() ?>
 <div class="till-foot single"><?= Html::a(Html::encode(Yii::t('app', 'Payment history')), ['/payment/history'], ['class' => 'button']) ?></div>
 <div class="till-foot">

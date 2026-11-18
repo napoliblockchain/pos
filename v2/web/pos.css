@@ -72,6 +72,9 @@ button:active,.button:active{background:var(--tblr-bg-surface-tertiary)}
 .payment-btc{text-align:center;font:600 18px var(--tblr-font-monospace);margin:0 0 4px}
 .payment-btc span{font-size:14px;color:var(--muted)}
 .actions.single{grid-template-columns:1fr;margin-top:8px}
+.actions.with-btc{grid-template-columns:1fr 1fr 1fr}
+.pay-symbol{font-size:34px;line-height:1;font-weight:700}
+.pay-symbol.tts span{color:#ffd43b}
 .btc,.btc:hover{background:#a35400;border-color:#a35400;color:#fff;font-weight:600}
 .payment-qr{margin:0 auto 12px;max-width:280px;background:#fff;padding:8px;border:1px solid var(--line);border-radius:var(--tblr-border-radius-lg);text-align:center}
 .payment-qr svg{width:100%;height:auto;display:block}
