@@ -191,8 +191,9 @@ try {
     $addr = 'bcrt1qnynpu9auq7msewe4t5lwkv042x6vvp6wxcdmtx';
     $btcPending = ['id' => $uuid(), 'opening_id' => $opening['id'], 'method' => 'btc', 'amount' => '12.34', 'currency' => 'EUR', 'state' => 'pending', 'expires_at' => time() + 900,
         'btc_address' => $addr, 'amount_btc' => '0.00024680', 'qr' => 'bitcoin:' . $addr . '?amount=0.0002468', 'checkout_url' => 'https://btcpay.local/i/INV0000000001',
-        'confirmations' => 0, 'processing_at' => null, 'settled_at' => null, 'error' => null];
-    $btcProcessing = array_replace($btcPending, ['state' => 'processing', 'processing_at' => time()]);
+        'confirmations' => 0, 'rate' => '61700.00', 'order_btc' => '0.00020000', 'network_fee_btc' => '0.00004680', 'paid_btc' => '0.00000000',
+        'processing_at' => null, 'settled_at' => null, 'error' => null];
+    $btcProcessing = array_replace($btcPending, ['state' => 'processing', 'processing_at' => time(), 'paid_btc' => '0.00024680']);
     $btcSettled = array_replace($btcProcessing, ['state' => 'settled', 'settled_at' => time(), 'qr' => null, 'checkout_url' => null, 'confirmations' => 1]);
     $methods = ['tts' => true, 'btc' => true, 'btc_currency' => 'EUR'];
     $client->responses = [$json($methods, 200)];
@@ -210,7 +211,8 @@ try {
             json_encode(['instance_id' => $opening['instance_id'], 'generation' => '3', 'amount_cents' => 1234]), $token, $key], 'BTC: POST with opening proof, cents and Idempotency-Key');
     foreach ([['qr' => 'bitcoin:' . $addr . '?amount=1'], ['qr' => 'bitcoin:bcrt1qother000000000000?amount=0.0002468'], ['checkout_url' => 'http://btcpay.local/i/INV0000000001'],
         ['checkout_url' => 'https://btcpay.local/apps/x/pos'], ['method' => 'tts'], ['currency' => 'TTS'], ['amount_btc' => null], ['amount_btc' => '0.0002468'],
-        ['state' => 'paid'], ['state' => 'processing'], ['settled_at' => time()], ['error' => 'Bad Code'], ['opening_id' => $uuid()], ['extra' => 1]] as $bad) {
+        ['state' => 'paid'], ['state' => 'processing'], ['settled_at' => time()], ['error' => 'Bad Code'], ['opening_id' => $uuid()], ['extra' => 1],
+        ['rate' => 61700.0], ['rate' => '61.700,00'], ['order_btc' => '0.0002'], ['network_fee_btc' => null], ['paid_btc' => -1]] as $bad) {
         $client->responses = [$json(array_merge($btcPending, $bad), 201)];
         $check($client->createBtcPayment($token, $opening, 1234, $key) === $unavailable, 'BTC: malformed payment refused: ' . json_encode($bad));
     }
@@ -247,21 +249,26 @@ try {
         && str_contains($html, 'EUR') && str_contains($html, 'data-state="pending"') && str_contains($html, 'data-payment-status="/payment/btc-status?id=' . $btcPending['id'] . '"')
         && str_contains($html, 'https://btcpay.local/i/INV0000000001') && str_contains($html, 'noopener noreferrer') && str_contains($html, 'data-countdown')
         && !str_contains($html, $token), 'BTC pending page: inline QR, BTC amount, address, countdown, BTCPay fallback link, polling');
+    $check(str_contains($html, '1 BTC = 61.700,00 EUR') && str_contains($html, 'ordine 0.00020000 BTC + fee di rete 0.00004680 BTC'),
+        'BTC pending page: BTCPay rate and order amount plus network fee (step 5)');
     $client->responses = [$json(array_replace($btcPending, ['btc_address' => null, 'amount_btc' => null, 'qr' => null]), 200)];
     $html = $controller->actionBtcView($btcPending['id']);
     $check(!str_contains($html, '<svg') && str_contains($html, 'QR non ancora disponibile') && str_contains($html, 'https://btcpay.local/i/INV0000000001'), 'BTC without address yet: no QR, fallback link (D2)');
     $client->responses = [$json($btcProcessing, 200)];
     $html = $controller->actionBtcView($btcPending['id']);
-    $check(str_contains($html, 'puoi chiudere la vendita') && !str_contains($html, '<svg') && str_contains($html, 'data-state="processing"') && str_contains($html, 'conferme: 0'),
+    $check(str_contains($html, 'puoi chiudere la vendita') && !str_contains($html, '<svg') && str_contains($html, 'data-state="processing"') && str_contains($html, 'Pagati 0.00024680 BTC, conferme: 0')
+        && str_contains($html, '1 BTC = 61.700,00 EUR'),
         'BTC received (0 conf): sale can be closed, still polling for the confirmation (D1)');
     $client->responses = [$json($btcSettled, 200)];
     $html = $controller->actionBtcView($btcPending['id']);
     $check(str_contains($html, 'Pagamento confermato') && !str_contains($html, 'data-payment-status') && !str_contains($html, 'btcpay.local'), 'BTC confirmed: final, no polling, no link');
-    foreach (['failed' => 'non creata', 'reconcile_required' => 'sconosciuto', 'invalid' => 'non chiudere la vendita', 'expired' => 'Scaduto'] as $state => $text) {
+    foreach (['failed' => 'non creata', 'reconcile_required' => 'sconosciuto', 'invalid' => 'non chiudere la vendita', 'expired' => 'Richiesta di pagamento scaduta'] as $state => $text) {
         $client->responses = [$json(array_replace($btcPending, ['state' => $state, 'qr' => null, 'checkout_url' => null, 'error' => $state === 'expired' ? null : 'invoice_rejected']
             + ($state === 'failed' || $state === 'reconcile_required' ? ['btc_address' => null, 'amount_btc' => null] : [])), 200)];
         $html = $controller->actionBtcView($btcPending['id']);
         $check(str_contains($html, $text) && !str_contains($html, 'data-payment-status') && !str_contains($html, '<svg'), 'BTC closed state shown: ' . $state);
+        if ($state === 'expired') $check(str_contains($html, 'Torna alla cassa') && substr_count(urldecode($html), 'site/index"') === 1 && str_contains($html, 'vale 15 minuti'),
+            'BTC expired: like BTCPay, expired request and a single Back to the till button');
     }
     $client->responses = [$json($btcProcessing, 200)];
     $check($controller->actionBtcStatus($btcPending['id']) === ['status' => 'processing'], 'BTC status JSON carries only the state');

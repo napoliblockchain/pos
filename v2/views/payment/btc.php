@@ -17,6 +17,13 @@ $states = [
 ];
 $open = $payment !== null && in_array($payment['state'], ['creating', 'pending', 'processing'], true);
 $rome = new DateTimeZone('Europe/Rome');
+// SIP-033 passo 5: cambio "61700.00" -> "61.700,00" (testo decimale di Napay, mai float)
+$money = static function (string $value): string {
+    [$whole, $cents] = explode('.', $value);
+    return ltrim(strrev(implode('.', str_split(strrev($whole), 3))), '.') . ',' . $cents;
+};
+$rate = $payment !== null && $payment['rate'] !== null ? Yii::t('app', '1 BTC = {rate} {currency}', ['rate' => $money($payment['rate']), 'currency' => $payment['currency']]) : null;
+$expired = $payment !== null && $payment['state'] === 'expired';
 ?>
 <section class="terminal payment" aria-label="<?= Html::encode(Yii::t('app', 'BTC payment')) ?>" data-heartbeat="/site/heartbeat"
 <?php if ($open): ?> data-payment-status="<?= Html::encode('/payment/btc-status?id=' . $payment['id']) ?>" data-expires="<?= (int) $payment['expires_at'] ?>" data-state="<?= Html::encode($payment['state']) ?>"<?php endif ?>>
@@ -26,12 +33,26 @@ $rome = new DateTimeZone('Europe/Rome');
 <p class="error" role="alert"><?= Html::encode(Yii::t('app', 'Napay unreachable: payment state not verified. Retry shortly.')) ?></p>
 <?= Html::a(Html::encode(Yii::t('app', 'Retry')), Yii::$app->request->url, ['class' => 'button']) ?>
 <?php else: ?>
+<?php if ($expired): ?>
+<div class="payment-expired-box" role="status" data-payment-state>
+<div class="payment-expired-icon" aria-hidden="true">&#10005;</div>
+<h2><?= Html::encode(Yii::t('app', 'Payment request expired')) ?></h2>
+<p class="payment-meta"><?= Html::encode($payment['amount']) ?> <?= Html::encode($payment['currency']) ?> &middot; <?= Html::encode(Yii::t('app', 'Payment {id}', ['id' => substr($payment['id'], 0, 8)])) ?></p>
+<p><?= Html::encode(Yii::t('app', 'A BTC payment request is valid for 15 minutes. Create a new payment if the customer wants to pay again.')) ?></p>
+<?= Html::a(Html::encode(Yii::t('app', 'Back to the till')), ['/site/index'], ['class' => 'button primary']) ?>
+</div>
+<?php else: ?>
 <p class="payment-amount"><?= Html::encode($payment['amount']) ?> <span><?= Html::encode($payment['currency']) ?></span></p>
 <p class="payment-state payment-<?= Html::encode($payment['state']) ?>" role="status" data-payment-state><?= Html::encode($states[$payment['state']]) ?></p>
+<?php endif ?>
 <?php if ($payment['state'] === 'pending' && $qr !== null): ?>
 <figure class="payment-qr"><?= $qr ?><figcaption><?= Html::encode(Yii::t('app', 'Scan with a Bitcoin wallet: address and amount are already filled in.')) ?></figcaption></figure>
 <p class="payment-btc"><?= Html::encode($payment['amount_btc']) ?> <span>BTC</span></p>
 <p class="payment-address"><?= Html::encode($payment['btc_address']) ?></p>
+<?php if ($rate !== null || $payment['order_btc'] !== null): ?>
+<p class="payment-meta" data-btc-detail><?= Html::encode(implode(' · ', array_filter([$rate, $payment['order_btc'] === null ? null
+    : Yii::t('app', 'order {order} BTC + network fee {fee} BTC', ['order' => $payment['order_btc'], 'fee' => $payment['network_fee_btc']])]))) ?></p>
+<?php endif ?>
 <?php elseif ($payment['state'] === 'pending'): ?>
 <p class="payment-meta"><?= Html::encode(Yii::t('app', 'QR not available yet: it appears in a few seconds, or open the BTCPay payment page.')) ?></p>
 <?php endif ?>
@@ -42,8 +63,9 @@ $rome = new DateTimeZone('Europe/Rome');
 <?= Html::a(Html::encode(Yii::t('app', 'Open the BTCPay payment page')), $payment['checkout_url'], ['class' => 'button', 'target' => '_blank', 'rel' => 'noopener noreferrer']) ?>
 <?php endif ?>
 <?php elseif ($payment['state'] === 'processing' || $payment['state'] === 'settled'): ?>
-<p class="payment-meta"><?= Html::encode(Yii::t('app', '{btc} BTC, confirmations: {count}', ['btc' => $payment['amount_btc'] ?? '-', 'count' => $payment['confirmations']])) ?></p>
+<p class="payment-meta"><?= Html::encode(Yii::t('app', 'Paid {btc} BTC, confirmations: {count}', ['btc' => $payment['paid_btc'] ?? $payment['amount_btc'] ?? '-', 'count' => $payment['confirmations']])) ?></p>
+<?php if ($rate !== null): ?><p class="payment-meta" data-btc-detail><?= Html::encode($rate) ?></p><?php endif ?>
 <?php endif ?>
 <?php endif ?>
-<div class="till-foot"><?= Html::a(Html::encode(Yii::t('app', 'New payment')), ['/site/index'], ['class' => 'button']) ?><?= Html::a(Html::encode(Yii::t('app', 'Payment history')), ['/payment/history'], ['class' => 'button']) ?></div>
+<div class="till-foot<?= $expired ? ' single' : '' ?>"><?= $expired ? '' : Html::a(Html::encode(Yii::t('app', 'New payment')), ['/site/index'], ['class' => 'button']) ?><?= Html::a(Html::encode(Yii::t('app', 'Payment history')), ['/payment/history'], ['class' => 'button']) ?></div>
 </section>

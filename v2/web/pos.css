@@ -73,6 +73,11 @@ button:active,.button:active{background:var(--tblr-bg-surface-tertiary)}
 .payment-btc span{font-size:14px;color:var(--muted)}
 .actions.single{grid-template-columns:1fr;margin-top:8px}
 .actions.with-btc{grid-template-columns:1fr 1fr 1fr}
+.payment-expired-box{text-align:center;padding:8px 4px 12px}
+.payment-expired-box h2{font-size:22px;margin:8px 0}
+.payment-expired-box p{margin:0 0 12px}
+.payment-expired-box .button{display:block;width:100%}
+.payment-expired-icon{width:56px;height:56px;margin:0 auto;border:3px solid var(--muted);border-radius:50%;color:var(--muted);font-size:26px;line-height:50px}
 .pay-symbol{font-size:34px;line-height:1;font-weight:700}
 .pay-symbol.tts span{color:#ffd43b}
 .btc,.btc:hover{background:#a35400;border-color:#a35400;color:#fff;font-weight:600}

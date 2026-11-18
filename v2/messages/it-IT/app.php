@@ -90,5 +90,9 @@ return [
     'Scan with a Bitcoin wallet: address and amount are already filled in.' => 'Inquadra con un wallet Bitcoin: indirizzo e importo sono già compilati.',
     'QR not available yet: it appears in a few seconds, or open the BTCPay payment page.' => 'QR non ancora disponibile: compare tra pochi secondi, oppure apri la pagina di pagamento BTCPay.',
     'Open the BTCPay payment page' => 'Apri la pagina di pagamento BTCPay',
-    '{btc} BTC, confirmations: {count}' => '{btc} BTC, conferme: {count}',
+    '1 BTC = {rate} {currency}' => '1 BTC = {rate} {currency}',
+    'Payment request expired' => 'Richiesta di pagamento scaduta',
+    'A BTC payment request is valid for 15 minutes. Create a new payment if the customer wants to pay again.' => 'Una richiesta di pagamento BTC vale 15 minuti. Crea un nuovo pagamento se il cliente vuole pagare di nuovo.',
+    'order {order} BTC + network fee {fee} BTC' => 'ordine {order} BTC + fee di rete {fee} BTC',
+    'Paid {btc} BTC, confirmations: {count}' => 'Pagati {btc} BTC, conferme: {count}',
 ];

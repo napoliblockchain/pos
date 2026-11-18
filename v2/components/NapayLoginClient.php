@@ -205,7 +205,12 @@ class NapayLoginClient extends \yii\base\Component
     public static function validBtcPayment($payment): bool
     {
         if (!is_array($payment) || array_keys($payment) !== ['id', 'opening_id', 'method', 'amount', 'currency', 'state', 'expires_at', 'btc_address', 'amount_btc',
-            'qr', 'checkout_url', 'confirmations', 'processing_at', 'settled_at', 'error']) return false;
+            'qr', 'checkout_url', 'confirmations', 'rate', 'order_btc', 'network_fee_btc', 'paid_btc', 'processing_at', 'settled_at', 'error']) return false;
+        // SIP-033 passo 5: cambio (valuta per 1 BTC) e importi BTC in testo decimale fisso, mai float
+        $sats = static fn($v): bool => $v === null || (is_string($v) && preg_match('/^[0-9]{1,8}\.[0-9]{8}$/D', $v) === 1);
+        if (($payment['rate'] !== null && (!is_string($payment['rate']) || preg_match('/^[0-9]{1,11}\.[0-9]{2}$/D', $payment['rate']) !== 1))
+            || !$sats($payment['order_btc']) || !$sats($payment['network_fee_btc']) || !$sats($payment['paid_btc'])
+            || ($payment['order_btc'] === null) !== ($payment['network_fee_btc'] === null)) return false;
         $open = in_array($payment['state'], ['pending', 'processing'], true);
         $address = $payment['btc_address'];
         $btc = $payment['amount_btc'];
