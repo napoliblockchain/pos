@@ -1,0 +1,798 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Napay POS API - sessions and authorized catalog available",
+    "version": "0.4.1",
+    "description": "POST/DELETE sessions and GET terminals implemented under SIP-021. Login and bearer use require an active dedicated base operator, enabled POS profile and qualified PG merchant (SIP-023 R1). Members, managers and administrators cannot operate POS. Four opening operations remain draft. Server-to-server only; token stays on POS server. No payment or opening endpoints implemented."
+  },
+  "x-contract-status": "partial-backend-catalog-implemented",
+  "x-login-flow": "pos-form-server-to-server-approved",
+  "servers": [
+    {
+      "url": "https://napay.local/api/pos/v1",
+      "description": "Approved backend origin through gateway on pos_local_browser, verified Caddy CA and hostname."
+    }
+  ],
+  "security": [
+    {
+      "PosClient": [],
+      "OperatorSession": []
+    }
+  ],
+  "paths": {
+    "/sessions": {
+      "post": {
+        "operationId": "createOperatorSession",
+        "summary": "Email/password verification by Napay. Login alone grants no store or terminal access.",
+        "security": [
+          {
+            "PosClient": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Login"
+              }
+            }
+          },
+          "description": "Exactly email and password strings, JSON body at most 4096 bytes."
+        },
+        "responses": {
+          "201": {
+            "description": "New scoped operator session. Token stays in POS server-side session, never browser JSON/localStorage.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Always no-store.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Session"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "405": {
+            "description": "Method not allowed; framework response without sensitive details. No stable error body guaranteed."
+          },
+          "429": {
+            "description": "Rate limited.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 900
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-implementation-status": "backend-implemented",
+        "parameters": [
+          {
+            "name": "X-POS-Operator-IP",
+            "in": "header",
+            "required": false,
+            "description": "Validated browser IP supplied by authenticated POS server, not copied from browser headers.",
+            "schema": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "format": "ipv4"
+                },
+                {
+                  "type": "string",
+                  "format": "ipv6"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "logoutOperator",
+        "summary": "Idempotently revoke only the supplied token bound to the authenticated client; empty request body. No openings implemented yet.",
+        "responses": {
+          "204": {
+            "description": "Empty response for revoked, already revoked, expired, unknown or foreign-client token. Other client sessions never modified.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Always no-store.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error",
+            "description": "Missing/invalid client key: unauthenticated; missing/malformed bearer: invalid_token."
+          },
+          "405": {
+            "description": "Method not allowed; framework response without sensitive details. No stable error body guaranteed."
+          },
+          "429": {
+            "description": "Separate logout limit: 60 requests/minute per client.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 900
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-implementation-status": "backend-implemented"
+      }
+    },
+    "/terminals": {
+      "get": {
+        "operationId": "listAuthorizedTerminals",
+        "summary": "Explicit enabled store grants within the operator sole merchant; no role bypass. Unknown availability; no SIN/wallet fields.",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "description": "Encrypted/authenticated cursor bound to current session, client and limit; rechecks grants on every page."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized terminals only; cursor must preserve caller scope.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Always no-store.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Catalog"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "405": {
+            "description": "Method not allowed; framework response without sensitive details. No stable error body guaranteed."
+          },
+          "429": {
+            "description": "Catalog rate limit; client 120/min and session 30/min.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 900
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-implementation-status": "backend-implemented",
+        "description": "Client 120/min, session 30/min. JSON at most 16384 bytes; pages may contain fewer than limit items due to byte budget. Invalid operator session: invalid_token; service authentication: unauthenticated. Empty GET body, no unknown query parameters."
+      }
+    },
+    "/terminals/{terminal_id}/openings": {
+      "post": {
+        "operationId": "openTerminal",
+        "summary": "Atomically acquire one opening. Fresh second acquisition is 409, including same user/device. Idempotent replay returns the original opening without creating or replacing anything.",
+        "parameters": [
+          {
+            "name": "terminal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Scope to caller session, operation and payload. Reusing key with a different payload is 409."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Replay of the same idempotent acquisition.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Always no-store.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Opening"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Opening acquired.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Always no-store.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Opening"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-implementation-status": "draft-not-implemented"
+      }
+    },
+    "/openings/{opening_id}": {
+      "get": {
+        "operationId": "checkOpening",
+        "summary": "Verify current session ownership, live grants, terminal state and current generation. Out-of-scope resources return 404; own invalidated opening returns 409. GET never acquires or resumes a lock.",
+        "parameters": [
+          {
+            "name": "opening_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Opening remains valid.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Always no-store.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Opening"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-implementation-status": "draft-not-implemented"
+      }
+    },
+    "/openings/{opening_id}/heartbeat": {
+      "post": {
+        "operationId": "heartbeatOpening",
+        "summary": "Validate ownership and fencing proof before recording contact. Never resurrect revoked openings. Missing heartbeat does not automatically unlock the POS.",
+        "parameters": [
+          {
+            "name": "opening_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpeningProof"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Contact recorded; lock remains exclusive.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Always no-store.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-implementation-status": "draft-not-implemented"
+      }
+    },
+    "/openings/{opening_id}/release": {
+      "post": {
+        "operationId": "releaseOpening",
+        "summary": "Normal close by the owning operator session only, using current fencing proof. This is not manager force-unlock.",
+        "parameters": [
+          {
+            "name": "opening_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpeningProof"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Own opening closed.",
+            "headers": {
+              "Cache-Control": {
+                "description": "Always no-store.",
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "x-implementation-status": "draft-not-implemented"
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "PosClient": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-POS-Client-Key",
+        "description": "Approved X-POS-Client-Key: 43 base64url characters, private server secret. Napay stores SHA-256 digests; removal revokes linked sessions."
+      },
+      "OperatorSession": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "opaque",
+        "description": "Opaque napos_ token, absolute expiry (default 12 hours), no automatic renewal. Session and catalog endpoints check revocation, active dedicated base operator, enabled profile and qualified merchant. Store grants filter the catalog; opening operations remain draft."
+      }
+    },
+    "schemas": {
+      "Login": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "email",
+          "password"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 254
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024,
+            "writeOnly": true
+          }
+        }
+      },
+      "Session": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "access_token",
+          "token_type",
+          "expires_at",
+          "operator"
+        ],
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "pattern": "^napos_[A-Za-z0-9_-]{43}$"
+          },
+          "token_type": {
+            "type": "string",
+            "const": "Bearer"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "operator": {
+            "$ref": "#/components/schemas/Operator"
+          }
+        }
+      },
+      "Operator": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "display_name"
+        ],
+        "properties": {
+          "display_name": {
+            "type": "string",
+            "maxLength": 513
+          }
+        }
+      },
+      "Terminal": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "store_name",
+          "name",
+          "availability"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "store_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "availability": {
+            "type": "string",
+            "enum": [
+              "unknown"
+            ],
+            "description": "First catalog only: unknown, displayed as Non verificata. No availability claims or terminal openings until authoritative locking is implemented."
+          }
+        }
+      },
+      "Catalog": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/Terminal"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 512
+          }
+        }
+      },
+      "OpenRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "instance_id"
+        ],
+        "properties": {
+          "instance_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "Opening": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "terminal_id",
+          "instance_id",
+          "generation",
+          "state"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "terminal_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "instance_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "generation": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]{0,19}$"
+          },
+          "state": {
+            "type": "string",
+            "const": "active"
+          }
+        }
+      },
+      "OpeningProof": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "instance_id",
+          "generation"
+        ],
+        "properties": {
+          "instance_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "generation": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]{0,19}$"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "code",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "invalid_credentials",
+                  "unauthenticated",
+                  "not_allowed",
+                  "not_found",
+                  "terminal_in_use",
+                  "opening_invalid",
+                  "idempotency_conflict",
+                  "validation_failed",
+                  "rate_limited",
+                  "backend_unavailable"
+                ]
+              },
+              "message": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              }
+            }
+          }
+        }
+      }
+    },
+    "responses": {
+      "Error": {
+        "description": "Generic public error. No stack trace, SQL, password, token, SIN, wallet or identity of the current terminal holder. 429 also requires Retry-After.",
+        "headers": {
+          "Cache-Control": {
+            "description": "Always no-store.",
+            "schema": {
+              "type": "string",
+              "const": "no-store"
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    }
+  },
+  "x-session-ttl-seconds": {
+    "default": 43200,
+    "maximum": 86400
+  }
+}
