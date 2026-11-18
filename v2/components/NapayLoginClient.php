@@ -170,6 +170,68 @@ class NapayLoginClient extends \yii\base\Component
             ['instance_id' => $opening['instance_id'], 'generation' => $opening['generation']], null, [200], self::paymentOf($opening['id'], $paymentId));
     }
 
+    /** SIP-033: metodi di incasso disponibili per l'apertura corrente (tasti TTS e BTC). */
+    public function paymentMethods(string $token, array $opening): array
+    {
+        if (!self::validOpening($opening)) return $this->unavailable();
+        return $this->payment('GET', '/openings/' . $opening['id'] . '/methods', $token, null, null, [200], static fn($data) => self::validMethods($data), 'methods');
+    }
+
+    /** SIP-033: pagamento BTC (fattura dell'app POS di BTCPay del terminale, creata da Napay). */
+    public function createBtcPayment(string $token, array $opening, int $cents, string $idempotencyKey): array
+    {
+        if (!self::validOpening($opening) || !self::uuid($idempotencyKey) || $cents < 1 || $cents > 100000) return $this->unavailable();
+        return $this->payment('POST', '/openings/' . $opening['id'] . '/btc-payments', $token,
+            ['instance_id' => $opening['instance_id'], 'generation' => $opening['generation'], 'amount_cents' => $cents], $idempotencyKey, [200, 201], self::btcPaymentOf($opening['id']));
+    }
+
+    /** Stato di un pagamento BTC della sessione: Napay lo rilegge da BTCPay. */
+    public function viewBtcPayment(string $token, array $opening, string $paymentId): array
+    {
+        if (!self::validOpening($opening) || !self::uuid($paymentId)) return $this->unavailable();
+        return $this->payment('GET', '/btc-payments/' . $paymentId, $token, null, null, [200], self::btcPaymentOf($opening['id'], $paymentId));
+    }
+
+    public static function validMethods($data): bool
+    {
+        return is_array($data) && array_keys($data) === ['tts', 'btc', 'btc_currency'] && is_bool($data['tts']) && is_bool($data['btc'])
+            && ($data['btc'] ? in_array($data['btc_currency'], ['EUR', 'USD'], true) : $data['btc_currency'] === null);
+    }
+
+    /**
+     * Pagamento BTC come restituito da Napay: quindici campi esatti; QR BIP21 coerente con indirizzo e importo BTC e solo
+     * finché il pagamento è aperto; pagina di pagamento BTCPay solo come fattura `/i/{id}` su HTTPS.
+     */
+    public static function validBtcPayment($payment): bool
+    {
+        if (!is_array($payment) || array_keys($payment) !== ['id', 'opening_id', 'method', 'amount', 'currency', 'state', 'expires_at', 'btc_address', 'amount_btc',
+            'qr', 'checkout_url', 'confirmations', 'processing_at', 'settled_at', 'error']) return false;
+        $open = in_array($payment['state'], ['pending', 'processing'], true);
+        $address = $payment['btc_address'];
+        $btc = $payment['amount_btc'];
+        if (($address === null) !== ($btc === null)) return false;
+        if ($address !== null && (!is_string($address) || preg_match('/^[A-Za-z0-9]{14,90}$/D', $address) !== 1 || !is_string($btc) || preg_match('/^[0-9]{1,8}\.[0-9]{8}$/D', $btc) !== 1)) return false;
+        $qr = $address === null ? null : 'bitcoin:' . $address . '?amount=' . rtrim(rtrim((string) $btc, '0'), '.');
+        return self::uuid($payment['id']) && self::uuid($payment['opening_id']) && $payment['method'] === 'btc'
+            && is_string($payment['amount']) && preg_match('/^(?:0|[1-9][0-9]{0,3})\.[0-9]{2}$/D', $payment['amount']) === 1
+            && in_array($payment['currency'], ['EUR', 'USD'], true)
+            && in_array($payment['state'], ['creating', 'pending', 'processing', 'settled', 'expired', 'invalid', 'failed', 'reconcile_required'], true)
+            && is_int($payment['expires_at']) && $payment['expires_at'] > 0
+            && ($payment['qr'] === null || ($open && $payment['qr'] === $qr))
+            && ($payment['checkout_url'] === null || ($open && is_string($payment['checkout_url'])
+                && preg_match('~^https://[a-z0-9.-]{1,253}(?::[0-9]{1,5})?/i/[A-Za-z0-9]{8,64}$~D', $payment['checkout_url']) === 1))
+            && is_int($payment['confirmations']) && $payment['confirmations'] >= 0
+            && ($payment['processing_at'] === null || is_int($payment['processing_at']))
+            && ($payment['state'] === 'settled' ? is_int($payment['settled_at']) : $payment['settled_at'] === null)
+            && ($payment['state'] !== 'processing' || is_int($payment['processing_at']))
+            && ($payment['error'] === null || (is_string($payment['error']) && preg_match('/^[a-z0-9_]{1,64}$/D', $payment['error']) === 1));
+    }
+
+    private static function btcPaymentOf(string $openingId, ?string $paymentId = null): \Closure
+    {
+        return static fn($data) => self::validBtcPayment($data) && $data['opening_id'] === $openingId && ($paymentId === null || $data['id'] === $paymentId);
+    }
+
     /** Storico del terminale dell'apertura corrente (Napay: ultimi 50, più recenti prima). */
     public function paymentHistory(string $token, array $opening): array
     {

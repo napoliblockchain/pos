@@ -166,8 +166,10 @@ class SiteController extends Controller
         }
         if (!$check['ok']) Yii::$app->response->statusCode = 503;
         // SIP-021 fase 3: il form del tastierino crea il pagamento (PaymentController::actionCreate)
+        // SIP-033: tasto BTC solo se Napay lo dichiara disponibile per questa apertura (Napay non raggiungibile = solo TTS)
+        $methods = $check['ok'] ? Yii::$app->napayLogin->paymentMethods($operator['token'], $opening['opening']) : ['ok' => false];
         return $this->render('index', ['model' => new AmountForm(), 'label' => $opening['label'], 'unverified' => !$check['ok'],
-            'notice' => Yii::$app->session->getFlash('pos')]);
+            'notice' => Yii::$app->session->getFlash('pos'), 'methods' => $methods['ok'] ? $methods['methods'] : null]);
     }
 
     public function actionHealth()

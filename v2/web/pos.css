@@ -66,6 +66,13 @@ button:active,.button:active{background:var(--tblr-bg-surface-tertiary)}
 .payment-state{text-align:center;font-size:16px;font-weight:500;padding:10px 12px;border-radius:var(--tblr-border-radius);background:var(--tblr-azure-lt);color:var(--tblr-azure);margin:0 0 12px}
 .payment-paid{background:var(--tblr-green-lt);color:var(--tblr-green)}
 .payment-expired,.payment-cancelled{background:var(--tblr-red-lt);color:var(--error)}
+.payment-settled{background:var(--tblr-green-lt);color:var(--tblr-green)}
+.payment-processing{background:var(--tblr-yellow-lt);color:#7a4b00}
+.payment-invalid,.payment-failed,.payment-reconcile_required{background:var(--tblr-red-lt);color:var(--error)}
+.payment-btc{text-align:center;font:600 18px var(--tblr-font-monospace);margin:0 0 4px}
+.payment-btc span{font-size:14px;color:var(--muted)}
+.actions.single{grid-template-columns:1fr;margin-top:8px}
+.btc,.btc:hover{background:#a35400;border-color:#a35400;color:#fff;font-weight:600}
 .payment-qr{margin:0 auto 12px;max-width:280px;background:#fff;padding:8px;border:1px solid var(--line);border-radius:var(--tblr-border-radius-lg);text-align:center}
 .payment-qr svg{width:100%;height:auto;display:block}
 .payment-qr figcaption{font-size:13px;color:var(--muted);margin-top:6px}

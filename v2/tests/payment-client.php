@@ -109,9 +109,10 @@ try {
     $app->operatorSession->keepOpening($opening, 'Negozio <b> - Cassa');
     foreach (['0', '1000,01', '12,345', 'abc'] as $bad) {
         $app->request->setBodyParams(['AmountForm' => ['amount' => $bad], 'key' => $key]);
-        $calls = $client->calls;
+        $sent = count($client->sent);
         $html = $controller->actionCreate();
-        $check(is_string($html) && $app->response->statusCode === 422 && $client->calls === $calls, 'Invalid amount stays on the till, nothing sent: ' . $bad);
+        // solo la lettura dei metodi per ridisegnare il tastierino, mai un pagamento
+        $check(is_string($html) && $app->response->statusCode === 422 && !in_array('POST', array_column(array_slice($client->sent, $sent), 1), true), 'Invalid amount stays on the till, nothing sent: ' . $bad);
         $app->response->statusCode = 200;
     }
     $app->request->setBodyParams(['AmountForm' => ['amount' => '12,34'], 'key' => $key]);
@@ -185,6 +186,93 @@ try {
         if ($label === 'not paid') $app->session->remove('pos.payments');
         try { $controller->actionReceipt($id); $check(false, 'No receipt from history: ' . $label); } catch (yii\web\NotFoundHttpException $e) { $check(true, 'No receipt from history: ' . $label); }
     }
+    // --- SIP-033: pagamenti BTC (client e controller)
+    $app->operatorSession->keepOpening($opening, 'Cassa');
+    $addr = 'bcrt1qnynpu9auq7msewe4t5lwkv042x6vvp6wxcdmtx';
+    $btcPending = ['id' => $uuid(), 'opening_id' => $opening['id'], 'method' => 'btc', 'amount' => '12.34', 'currency' => 'EUR', 'state' => 'pending', 'expires_at' => time() + 900,
+        'btc_address' => $addr, 'amount_btc' => '0.00024680', 'qr' => 'bitcoin:' . $addr . '?amount=0.0002468', 'checkout_url' => 'https://btcpay.local/i/INV0000000001',
+        'confirmations' => 0, 'processing_at' => null, 'settled_at' => null, 'error' => null];
+    $btcProcessing = array_replace($btcPending, ['state' => 'processing', 'processing_at' => time()]);
+    $btcSettled = array_replace($btcProcessing, ['state' => 'settled', 'settled_at' => time(), 'qr' => null, 'checkout_url' => null, 'confirmations' => 1]);
+    $methods = ['tts' => true, 'btc' => true, 'btc_currency' => 'EUR'];
+    $client->responses = [$json($methods, 200)];
+    $check($client->paymentMethods($token, $opening) === ['ok' => true, 'methods' => $methods] && end($client->sent)[0] === $base . '/openings/' . $opening['id'] . '/methods'
+        && end($client->sent)[1] === 'GET', 'BTC: methods read from the opening');
+    foreach ([['btc_currency' => null], ['btc_currency' => 'BTC'], ['extra' => 1], ['btc' => 1]] as $bad) {
+        $client->responses = [$json(array_merge($methods, $bad), 200)];
+        $check($client->paymentMethods($token, $opening) === $unavailable, 'BTC: malformed methods refused: ' . json_encode($bad));
+    }
+    $client->responses = [$json(['tts' => true, 'btc' => false, 'btc_currency' => 'EUR'], 200)];
+    $check($client->paymentMethods($token, $opening) === $unavailable, 'BTC: currency without BTC refused');
+    $client->responses = [$json($btcPending, 201)];
+    $check($client->createBtcPayment($token, $opening, 1234, $key) === ['ok' => true, 'payment' => $btcPending]
+        && end($client->sent) === [$base . '/openings/' . $opening['id'] . '/btc-payments', 'POST',
+            json_encode(['instance_id' => $opening['instance_id'], 'generation' => '3', 'amount_cents' => 1234]), $token, $key], 'BTC: POST with opening proof, cents and Idempotency-Key');
+    foreach ([['qr' => 'bitcoin:' . $addr . '?amount=1'], ['qr' => 'bitcoin:bcrt1qother000000000000?amount=0.0002468'], ['checkout_url' => 'http://btcpay.local/i/INV0000000001'],
+        ['checkout_url' => 'https://btcpay.local/apps/x/pos'], ['method' => 'tts'], ['currency' => 'TTS'], ['amount_btc' => null], ['amount_btc' => '0.0002468'],
+        ['state' => 'paid'], ['state' => 'processing'], ['settled_at' => time()], ['error' => 'Bad Code'], ['opening_id' => $uuid()], ['extra' => 1]] as $bad) {
+        $client->responses = [$json(array_merge($btcPending, $bad), 201)];
+        $check($client->createBtcPayment($token, $opening, 1234, $key) === $unavailable, 'BTC: malformed payment refused: ' . json_encode($bad));
+    }
+    $client->responses = [$json(array_replace($btcSettled, ['qr' => $btcPending['qr']]), 200)];
+    $check($client->viewBtcPayment($token, $opening, $btcPending['id']) === $unavailable, 'BTC: QR on a closed payment refused');
+    $client->responses = [$json($btcSettled, 200)];
+    $check($client->viewBtcPayment($token, $opening, $btcPending['id']) === ['ok' => true, 'payment' => $btcSettled]
+        && end($client->sent)[0] === $base . '/btc-payments/' . $btcPending['id'], 'BTC: status GET on the payment');
+    $client->responses = [$json(array_replace($btcSettled, ['id' => $uuid()]), 200)];
+    $check($client->viewBtcPayment($token, $opening, $btcPending['id']) === $unavailable, 'BTC: status must describe the requested payment');
+    // tastierino: tasto BTC solo se dichiarato da Napay
+    $app->request->setBodyParams(['AmountForm' => ['amount' => '0'], 'key' => $key]);
+    $client->responses = [$json($methods, 200)];
+    $html = $controller->actionBtcCreate();
+    $check(is_string($html) && $app->response->statusCode === 422 && str_contains($html, 'Incassa in BTC') && str_contains(urldecode($html), 'payment/btc-create')
+        && str_contains($html, 'TTS / EUR') && str_contains($html, 'Incassa TTS'), 'Till: BTC button (formaction) and currency when Napay offers BTC');
+    $app->response->statusCode = 200;
+    $client->responses = [$json(['tts' => true, 'btc' => false, 'btc_currency' => null], 200)];
+    $html = $controller->actionBtcCreate();
+    $check(!str_contains($html, 'Incassa in BTC') && !str_contains($html, 'TTS / ') && str_contains($html, 'Incassa TTS'), 'Till: no BTC button when not available');
+    $app->response->statusCode = 200;
+    $client->responses = [[]];
+    $html = $controller->actionBtcCreate();
+    $check(!str_contains($html, 'Incassa in BTC') && str_contains($html, 'Incassa TTS'), 'Till: methods unknown (Napay unreachable) = TTS only');
+    $app->response->statusCode = 200;
+    // creazione e pagina
+    $app->request->setBodyParams(['AmountForm' => ['amount' => '12,34'], 'key' => $key]);
+    $client->responses = [$json($btcPending, 201)];
+    $check($goes($controller->actionBtcCreate(), 'payment/btc-view') && $app->operatorSession->ownsPayment($btcPending['id'])
+        && json_decode(end($client->sent)[2], true)['amount_cents'] === 1234, 'BTC create: integer cents, payment remembered, redirect to its page');
+    $client->responses = [$json($btcPending, 200)];
+    $html = $controller->actionBtcView($btcPending['id']);
+    $check(str_contains($html, '<svg') && !str_contains($html, '<?xml') && str_contains($html, '0.00024680') && str_contains($html, $addr) && str_contains($html, '12.34')
+        && str_contains($html, 'EUR') && str_contains($html, 'data-state="pending"') && str_contains($html, 'data-payment-status="/payment/btc-status?id=' . $btcPending['id'] . '"')
+        && str_contains($html, 'https://btcpay.local/i/INV0000000001') && str_contains($html, 'noopener noreferrer') && str_contains($html, 'data-countdown')
+        && !str_contains($html, $token), 'BTC pending page: inline QR, BTC amount, address, countdown, BTCPay fallback link, polling');
+    $client->responses = [$json(array_replace($btcPending, ['btc_address' => null, 'amount_btc' => null, 'qr' => null]), 200)];
+    $html = $controller->actionBtcView($btcPending['id']);
+    $check(!str_contains($html, '<svg') && str_contains($html, 'QR non ancora disponibile') && str_contains($html, 'https://btcpay.local/i/INV0000000001'), 'BTC without address yet: no QR, fallback link (D2)');
+    $client->responses = [$json($btcProcessing, 200)];
+    $html = $controller->actionBtcView($btcPending['id']);
+    $check(str_contains($html, 'puoi chiudere la vendita') && !str_contains($html, '<svg') && str_contains($html, 'data-state="processing"') && str_contains($html, 'conferme: 0'),
+        'BTC received (0 conf): sale can be closed, still polling for the confirmation (D1)');
+    $client->responses = [$json($btcSettled, 200)];
+    $html = $controller->actionBtcView($btcPending['id']);
+    $check(str_contains($html, 'Pagamento confermato') && !str_contains($html, 'data-payment-status') && !str_contains($html, 'btcpay.local'), 'BTC confirmed: final, no polling, no link');
+    foreach (['failed' => 'non creata', 'reconcile_required' => 'sconosciuto', 'invalid' => 'non chiudere la vendita', 'expired' => 'Scaduto'] as $state => $text) {
+        $client->responses = [$json(array_replace($btcPending, ['state' => $state, 'qr' => null, 'checkout_url' => null, 'error' => $state === 'expired' ? null : 'invoice_rejected']
+            + ($state === 'failed' || $state === 'reconcile_required' ? ['btc_address' => null, 'amount_btc' => null] : [])), 200)];
+        $html = $controller->actionBtcView($btcPending['id']);
+        $check(str_contains($html, $text) && !str_contains($html, 'data-payment-status') && !str_contains($html, '<svg'), 'BTC closed state shown: ' . $state);
+    }
+    $client->responses = [$json($btcProcessing, 200)];
+    $check($controller->actionBtcStatus($btcPending['id']) === ['status' => 'processing'], 'BTC status JSON carries only the state');
+    $check($controller->actionBtcStatus($uuid()) === ['status' => 'closed'], 'BTC status of a payment not created here: closed, no call');
+    try { $controller->actionBtcView($uuid()); $check(false, 'Foreign BTC payment page is 404'); } catch (yii\web\NotFoundHttpException $e) { $check(true, 'Foreign BTC payment page is 404'); }
+    $app->request->setBodyParams(['AmountForm' => ['amount' => '5'], 'key' => $uuid()]);
+    $client->responses = [$error('payment_unavailable', 503), $json(['tts' => true, 'btc' => false, 'btc_currency' => null], 200)];
+    $html = $controller->actionBtcCreate();
+    $check($app->response->statusCode === 503 && str_contains($html, 'Pagamenti BTC non disponibili'), 'BTC unavailable: clear message on the till');
+    $app->response->statusCode = 200;
+    $app->response->format = yii\web\Response::FORMAT_HTML;
     $client->responses = [$error('opening_invalid', 409)];
     $app->request->setBodyParams(['AmountForm' => ['amount' => '5'], 'key' => $uuid()]);
     $check($goes($controller->actionCreate(), 'site/account') && $app->operatorSession->opening() === null && !$app->operatorSession->ownsPayment($pending['id']),
