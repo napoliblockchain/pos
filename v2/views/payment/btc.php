@@ -65,6 +65,7 @@ $expired = $payment !== null && $payment['state'] === 'expired';
 <?php elseif ($payment['state'] === 'processing' || $payment['state'] === 'settled'): ?>
 <p class="payment-meta"><?= Html::encode(Yii::t('app', 'Paid {btc} BTC, confirmations: {count}', ['btc' => $payment['paid_btc'] ?? $payment['amount_btc'] ?? '-', 'count' => $payment['confirmations']])) ?></p>
 <?php if ($rate !== null): ?><p class="payment-meta" data-btc-detail><?= Html::encode($rate) ?></p><?php endif ?>
+<?php foreach ($payment['txids'] as $txid): ?><p class="payment-address" data-txid><?= Html::encode(Yii::t('app', 'Transaction')) ?> <?= Html::encode($txid) ?></p><?php endforeach ?>
 <?= Html::a(Html::encode(Yii::t('app', 'Receipt')), ['/payment/btc-receipt', 'id' => $payment['id']], ['class' => 'button', 'target' => '_blank', 'rel' => 'noopener']) ?>
 <?php endif ?>
 <?php endif ?>

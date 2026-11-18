@@ -208,7 +208,11 @@ class NapayLoginClient extends \yii\base\Component
     public static function validBtcPayment($payment): bool
     {
         if (!is_array($payment) || array_keys($payment) !== ['id', 'opening_id', 'method', 'amount', 'currency', 'state', 'expires_at', 'btc_address', 'amount_btc',
-            'qr', 'checkout_url', 'confirmations', 'rate', 'order_btc', 'network_fee_btc', 'paid_btc', 'processing_at', 'settled_at', 'error']) return false;
+            'qr', 'checkout_url', 'confirmations', 'rate', 'order_btc', 'network_fee_btc', 'paid_btc', 'txids', 'processing_at', 'settled_at', 'error']) return false;
+        // transazioni Bitcoin (txid) dalla ricevuta BTCPay: al massimo 10, solo a pagamento ricevuto o confermato
+        if (!is_array($payment['txids']) || !array_is_list($payment['txids']) || count($payment['txids']) > 10
+            || ($payment['txids'] !== [] && !in_array($payment['state'], ['processing', 'settled', 'expired', 'invalid'], true))) return false;
+        foreach ($payment['txids'] as $txid) if (!is_string($txid) || preg_match('/^[0-9a-f]{64}$/D', $txid) !== 1) return false;
         // SIP-033 passo 5: cambio (valuta per 1 BTC) e importi BTC in testo decimale fisso, mai float
         $sats = static fn($v): bool => $v === null || (is_string($v) && preg_match('/^[0-9]{1,8}\.[0-9]{8}$/D', $v) === 1);
         if (($payment['rate'] !== null && (!is_string($payment['rate']) || preg_match('/^[0-9]{1,11}\.[0-9]{2}$/D', $payment['rate']) !== 1))
@@ -267,7 +271,7 @@ class NapayLoginClient extends \yii\base\Component
                         : $item['tx_hash'] === null && $item['paid_at'] === null)) return false;
             } elseif ($item['method'] === 'btc') {
                 $received = in_array($item['state'], ['processing', 'settled'], true);
-                if (!in_array($item['currency'], ['EUR', 'USD'], true) || $item['tx_hash'] !== null
+                if (!in_array($item['currency'], ['EUR', 'USD'], true) || ($item['tx_hash'] !== null && (!is_string($item['tx_hash']) || preg_match('/^[0-9a-f]{64}$/D', $item['tx_hash']) !== 1))
                     || !in_array($item['state'], ['creating', 'pending', 'processing', 'settled', 'expired', 'invalid', 'failed', 'reconcile_required'], true)
                     || ($received ? !is_int($item['paid_at']) : $item['paid_at'] !== null && !is_int($item['paid_at']))
                     || ($item['rate'] !== null && (!is_string($item['rate']) || preg_match('/^[0-9]{1,11}\.[0-9]{2}$/D', $item['rate']) !== 1))

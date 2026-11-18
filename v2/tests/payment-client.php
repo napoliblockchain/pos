@@ -83,7 +83,7 @@ try {
     $mine = ['id' => $pending['id'], 'method' => 'tts', 'amount' => '12.34', 'currency' => 'TTS', 'state' => 'pending', 'created_at' => time(), 'paid_at' => null, 'tx_hash' => null,
         'rate' => null, 'paid_btc' => null, 'own' => true];
     $btcItem = ['id' => $uuid(), 'method' => 'btc', 'amount' => '1.00', 'currency' => 'EUR', 'state' => 'settled', 'created_at' => time() - 300, 'paid_at' => time() - 290,
-        'tx_hash' => null, 'rate' => '61700.00', 'paid_btc' => '0.00024680', 'own' => false];
+        'tx_hash' => str_repeat('cd', 32), 'rate' => '61700.00', 'paid_btc' => '0.00024680', 'own' => false];
     $totals = ['since' => time() - 3600, 'tts' => ['count' => 1, 'amount' => '5.00'], 'btc' => [['currency' => 'EUR', 'count' => 1, 'amount' => '1.00', 'btc' => '0.00024680']]];
     $client->responses = [$json(['payments' => [$mine, $other], 'totals' => $totals], 200)];
     $check($client->paymentHistory($token, $opening) === ['ok' => true, 'payments' => [$mine, $other], 'totals' => $totals] && end($client->sent)[1] === 'GET' && end($client->sent)[2] === ''
@@ -96,6 +96,7 @@ try {
     foreach ([['payments' => array_fill(0, 51, $other), 'totals' => $totals], ['payments' => [$other], 'totals' => $totals, 'next' => 1], ['payments' => ['a' => $other], 'totals' => $totals], [$other],
         ['payments' => [$other]], ['payments' => [$other], 'totals' => ['tts' => $totals['tts']] + $totals], ['payments' => [$other], 'totals' => array_replace($totals, ['btc' => [['currency' => 'BTC'] + $totals['btc'][0]]])],
         ['payments' => [$other], 'totals' => array_replace($totals, ['tts' => ['count' => -1, 'amount' => '5.00']])], ['payments' => [array_replace($btcItem, ['tx_hash' => '0x' . str_repeat('ab', 32)])], 'totals' => $totals],
+        ['payments' => [array_replace($btcItem, ['tx_hash' => 'not-a-txid'])], 'totals' => $totals],
         ['payments' => [array_replace($btcItem, ['paid_at' => null])], 'totals' => $totals], ['payments' => [array_replace($btcItem, ['currency' => 'TTS'])], 'totals' => $totals]] as $bad) {
         $client->responses = [$json($bad, 200)];
         $check($client->paymentHistory($token, $opening) === $unavailable, 'Malformed history list refused');
@@ -211,8 +212,9 @@ try {
     $btcPending = ['id' => $uuid(), 'opening_id' => $opening['id'], 'method' => 'btc', 'amount' => '12.34', 'currency' => 'EUR', 'state' => 'pending', 'expires_at' => time() + 900,
         'btc_address' => $addr, 'amount_btc' => '0.00024680', 'qr' => 'bitcoin:' . $addr . '?amount=0.0002468', 'checkout_url' => 'https://btcpay.local/i/INV0000000001',
         'confirmations' => 0, 'rate' => '61700.00', 'order_btc' => '0.00020000', 'network_fee_btc' => '0.00004680', 'paid_btc' => '0.00000000',
-        'processing_at' => null, 'settled_at' => null, 'error' => null];
-    $btcProcessing = array_replace($btcPending, ['state' => 'processing', 'processing_at' => time(), 'paid_btc' => '0.00024680']);
+        'txids' => [], 'processing_at' => null, 'settled_at' => null, 'error' => null];
+    $btcTx = str_repeat('ab', 32);
+    $btcProcessing = array_replace($btcPending, ['state' => 'processing', 'processing_at' => time(), 'paid_btc' => '0.00024680', 'txids' => [$btcTx]]);
     $btcSettled = array_replace($btcProcessing, ['state' => 'settled', 'settled_at' => time(), 'qr' => null, 'checkout_url' => null, 'confirmations' => 1]);
     $methods = ['tts' => true, 'btc' => true, 'btc_currency' => 'EUR'];
     $client->responses = [$json($methods, 200)];
@@ -231,7 +233,8 @@ try {
     foreach ([['qr' => 'bitcoin:' . $addr . '?amount=1'], ['qr' => 'bitcoin:bcrt1qother000000000000?amount=0.0002468'], ['checkout_url' => 'http://btcpay.local/i/INV0000000001'],
         ['checkout_url' => 'https://btcpay.local/apps/x/pos'], ['method' => 'tts'], ['currency' => 'TTS'], ['amount_btc' => null], ['amount_btc' => '0.0002468'],
         ['state' => 'paid'], ['state' => 'processing'], ['settled_at' => time()], ['error' => 'Bad Code'], ['opening_id' => $uuid()], ['extra' => 1],
-        ['rate' => 61700.0], ['rate' => '61.700,00'], ['order_btc' => '0.0002'], ['network_fee_btc' => null], ['paid_btc' => -1]] as $bad) {
+        ['rate' => 61700.0], ['rate' => '61.700,00'], ['order_btc' => '0.0002'], ['network_fee_btc' => null], ['paid_btc' => -1],
+        ['txids' => [$btcTx]], ['txids' => 'x'], ['txids' => ['0x' . $btcTx]]] as $bad) {
         $client->responses = [$json(array_merge($btcPending, $bad), 201)];
         $check($client->createBtcPayment($token, $opening, 1234, $key) === $unavailable, 'BTC: malformed payment refused: ' . json_encode($bad));
     }
@@ -276,6 +279,7 @@ try {
     $client->responses = [$json($btcProcessing, 200)];
     $html = $controller->actionBtcView($btcPending['id']);
     $check(str_contains($html, 'puoi chiudere la vendita') && !str_contains($html, '<svg') && str_contains($html, 'data-state="processing"') && str_contains($html, 'Pagati 0.00024680 BTC, conferme: 0')
+        && str_contains($html, 'Transazione ' . $btcTx)
         && str_contains($html, '1 BTC = 61.700,00 EUR'),
         'BTC received (0 conf): sale can be closed, still polling for the confirmation (D1)');
     $client->responses = [$json($btcSettled, 200)];

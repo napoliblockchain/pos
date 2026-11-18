@@ -39,7 +39,7 @@ final class PaymentDocuments
     /**
      * SIP-033 passo 5: ricevuta A7 di un pagamento BTC ricevuto (D1) o confermato: importo nella valuta del negozio,
      * BTC pagati e cambio di BTCPay. Mai indirizzo o fattura.
-     * @param array{label:string, operator:?string, amount:string, currency:string, paid_at:int, id:string, settled:bool, paid_btc:?string, rate:?string} $receipt
+     * @param array{label:string, operator:?string, amount:string, currency:string, paid_at:int, id:string, settled:bool, paid_btc:?string, rate:?string, txid:?string} $receipt
      */
     public static function btcReceiptPdf(array $receipt): string
     {
@@ -53,6 +53,8 @@ final class PaymentDocuments
             $receipt['paid_btc'] === null ? null : ['B', 9, $receipt['paid_btc'] . ' BTC'],
             $receipt['rate'] === null ? null : ['', 7, \Yii::t('app', '1 BTC = {rate} {currency}', ['rate' => self::money($receipt['rate']), 'currency' => $receipt['currency']])],
             ['', 7, $receipt['settled'] ? \Yii::t('app', 'Payment confirmed') : \Yii::t('app', 'Payment received, waiting for the network confirmation')],
+            $receipt['txid'] === null ? null : ['', 7, \Yii::t('app', 'Transaction')],
+            $receipt['txid'] === null ? null : ['', 7, substr($receipt['txid'], 0, 12) . '...' . substr($receipt['txid'], -10)],
             ['', 7, \Yii::t('app', 'Payment {id}', ['id' => substr($receipt['id'], 0, 8)])],
         ];
         return self::pdf($receipt['id'], $rows);

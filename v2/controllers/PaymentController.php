@@ -234,7 +234,8 @@ class PaymentController extends Controller
         $paidAt = $owned ? ($payment['processing_at'] ?? $payment['settled_at']) : $payment['paid_at'];
         $pdf = PaymentDocuments::btcReceiptPdf(['label' => $opening['label'], 'operator' => $owned ? $operator['name'] : null, 'amount' => $payment['amount'],
             'currency' => $payment['currency'], 'paid_at' => (int) $paidAt, 'id' => $payment['id'], 'settled' => $payment['state'] === 'settled',
-            'paid_btc' => $payment['paid_btc'] === '0.00000000' ? null : $payment['paid_btc'], 'rate' => $payment['rate']]);
+            'paid_btc' => $payment['paid_btc'] === '0.00000000' ? null : $payment['paid_btc'], 'rate' => $payment['rate'],
+            'txid' => $owned ? ($payment['txids'][0] ?? null) : $payment['tx_hash']]);
         return Yii::$app->response->sendContentAsFile($pdf, 'ricevuta-' . substr($payment['id'], 0, 8) . '.pdf',
             ['mimeType' => 'application/pdf', 'inline' => true]);
     }
