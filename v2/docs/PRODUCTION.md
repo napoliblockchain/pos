@@ -29,6 +29,9 @@ directory owned by the release user. Apache will own the runtime (uid33);
 both the initial release-user ownership and uid33 are accepted on later
 releases. Do not place configuration/secrets in this directory. Session and
 runtime data survive container replacement. Back them up separately.
+This composition assumes rootful Docker without user-namespace remapping:
+the entrypoint initializes ownership as uid33. Rootless/remapped engines
+need a separately verified ownership configuration before use.
 
 ## Check And Release
 
@@ -70,7 +73,9 @@ it explicitly; no automatic credential rollback.
 ## Gateway Handoff
 
 Connect only the gateway and POS to the production network. Route the actual
-POS domain to `pos-v2-web:80` with HTTPS and automatic public certificates.
+POS domain to `pos-v2-web:80` with HTTPS managed by the gateway. For Napay's
+internal HTTPS endpoint, mount the gateway CA with `NAPAY_CA_SOURCE` if its
+certificate is private; omit it only when the certificate is publicly trusted.
 Napay must resolve from that network at the configured HTTPS origin and allow
 the POS subnet for its POS API. Those changes belong to the master; this
 release script never creates or restarts the shared gateway or Napay.
@@ -79,3 +84,17 @@ release script never creates or restarts the shared gateway or Napay.
 not backend grants or a financial transaction. Production has no test-chain
 copy button and `payment/request` returns404. Test on the actual target with
 an authorized operator before enabling real collections.
+
+## Offline Verification
+
+`bash v2/tests/docker/unit.sh` runs PHP and Node regressions using cached
+images, without network access or shared runtime. `bash
+v2/tests/docker/production-deploy.sh` builds and boots a disposable production
+fixture, tests actual TLS and forces a failing release to verify rollback.
+It publishes no ports and removes only its uniquely named resources.
+
+The deploy fixture replaces only its private Dockerfile dependency-acquisition
+stage with vendor from the cached POS image, after matching every installed
+package/version/source-reference/dist-reference against `composer.lock`.
+Application image stages and deployment script remain unchanged. This tests
+production runtime and rollback offline, not a fresh Composer download.
