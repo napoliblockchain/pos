@@ -2,3 +2,4 @@
 vendor
 runtime
 .git
+*.log

@@ -1,6 +1,8 @@
 # Napay POS v2 - primo avvio locale
 
 Yii2, PHP 8.3.36, container indipendente, gateway Caddy condiviso.
+Modalita produzione e rilascio VPS: [PRODUCTION.md](docs/PRODUCTION.md)
+(SIP-036). La sandbox continua a usare `POS_MODE=preview` e `docker/local.sh`.
 URL: **https://pos.localhost**. Chrome risolve `.localhost` su loopback;
 per curl puo essere necessario `--resolve pos.localhost:443:127.0.0.1`.
 Stessa CA di `napay.local` e `wallet.local`, nessuna nuova porta host.
@@ -39,7 +41,8 @@ ogni 30 s (solo informativo), chiusura esplicita e al logout; lo sblocco forzato
 smartphone, manifest installabile, service worker che tiene in cache solo il
 guscio statico e mostra `offline.html` senza rete (mai pagine con dati operatore).
 
-**Non implementati:** incassi BTC.
+**BTC (SIP-033):** incasso, stato, storico, totali e ricevuta implementati;
+la disponibilita del metodo e decisa da Napay per ciascuna apertura.
 
 Decisioni concordate il 2026-11-11: login utente base, POS autorizzati per piu
 negozi, apertura esclusiva e sblocco admin/merchant; wallet unico per merchant.
@@ -50,8 +53,9 @@ Disponibile [bozza OpenAPI](docs/pos-api.openapi.json) per l'agente backend:
 7 operazioni: login, logout e catalogo implementati sul contratto SIP-021;
 altre 4 ancora proposte, non implementate. Controlli strutturali ripetibili:
 `node tests/api-contract.cjs`, senza test o chiamate al backend operativo.
-Non e presente una modalita live: `POS_MODE` diverso da `preview` blocca l'avvio.
-Non usare in produzione; per il collaudo usare solo account della sandbox locale.
+Sono ammessi solo `POS_MODE=preview` e `POS_MODE=production`.
+Per la VPS usare esclusivamente la composizione e lo script di produzione;
+per il collaudo locale usare soltanto account e chain della sandbox.
 
 Accesso da **https://pos.localhost/site/login**. Dopo il login compare soltanto
 il nome operatore e il catalogo autorizzato, non un terminale aperto. Solo

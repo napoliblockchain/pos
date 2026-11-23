@@ -1,0 +1,8 @@
+services:
+  web:
+    environment:
+      NAPAY_CA_FILE: /run/pos-secrets/ca.crt
+    secrets: [napay_ca]
+secrets:
+  napay_ca:
+    file: ${NAPAY_CA_SOURCE:?Additional CA source required}
