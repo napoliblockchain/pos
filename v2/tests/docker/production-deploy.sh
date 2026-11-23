@@ -38,6 +38,31 @@ trap cleanup EXIT
 trap 'exit 1' HUP INT TERM
 # Archive committed source only; the private fixture has its own Git history and release tags.
 git -C "$repo" archive "$revision" v2 | tar -x -C "$source_dir"
+# The test stays offline: reuse cached vendor only after exact lock metadata verification.
+docker image inspect napay/pos-v2:dev >/dev/null
+docker run --rm -i --network none --read-only -v "$source_dir/v2/composer.lock:/fixture.lock:ro" --entrypoint php napay/pos-v2:dev <<'PHP'
+<?php
+$lock = json_decode(file_get_contents('/fixture.lock'), true, 512, JSON_THROW_ON_ERROR);
+$installed = json_decode(file_get_contents('/srv/pos/vendor/composer/installed.json'), true, 512, JSON_THROW_ON_ERROR);
+$fingerprints = static function (array $packages): array {
+    $result = [];
+    foreach ($packages as $package) {
+        $result[$package['name']] = [$package['version'], $package['source']['reference'] ?? null, $package['dist']['reference'] ?? null];
+    }
+    ksort($result);
+    return $result;
+};
+if ($fingerprints($lock['packages']) !== $fingerprints($installed['packages'])) {
+    fwrite(STDERR, "Cached dependencies do not match composer.lock.\n");
+    exit(1);
+}
+PHP
+# Only the disposable fixture replaces dependency acquisition; application stages are unchanged.
+{
+    printf '%s\n' 'FROM napay/pos-v2:dev AS dependencies' 'WORKDIR /app' 'RUN cp -a /srv/pos/vendor /app/vendor'
+    sed -n '/^FROM php:/,$p' "$source_dir/v2/docker/Dockerfile"
+} > "$work/Dockerfile.offline"
+mv "$work/Dockerfile.offline" "$source_dir/v2/docker/Dockerfile"
 git -C "$source_dir" init -q
 git -C "$source_dir" add v2
 git -C "$source_dir" -c user.name=Fixture -c user.email=fixture@example.invalid commit -qm 'production fixture'
