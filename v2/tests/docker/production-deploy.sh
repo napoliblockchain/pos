@@ -146,7 +146,7 @@ bash "$script" "$work/private/ca.env" > "$work/deploy.log" 2>&1
 container=$(docker ps -q --filter "label=com.docker.compose.project=$project" --filter label=com.docker.compose.service=web)
 [[ $(docker inspect -f '{{.State.Health.Status}}' "$container") == healthy ]]
 old_id=$(docker inspect -f '{{.Image}}' "$container")
-[[ $(docker inspect -f '{{.HostConfig.ReadonlyRootfs}}' "$container") == true && $(docker inspect -f '{{json .HostConfig.PortBindings}}' "$container") == '{}' ]]
+[[ $(docker inspect -f '{{.HostConfig.ReadonlyRootfs}}' "$container") == true && $(docker inspect -f '{{len .HostConfig.PortBindings}}' "$container") == 0 ]]
 docker exec "$container" sh -c 'test ! -e /srv/pos/tests && test -f /run/pos-secrets/client-key'
 ok 'production image healthy, no tests, no host ports, read-only root'
 [[ $(docker exec "$container" curl -s http://127.0.0.1/health) == '{"status":"ok","mode":"production","payments":"tts-btc"}' ]]
