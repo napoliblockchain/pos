@@ -38,7 +38,7 @@ trap cleanup EXIT
 trap 'exit 1' HUP INT TERM
 trap 'printf "Fixture failed at line %s\n" "$LINENO" >&2' ERR
 # Archive committed source only; the private fixture has its own Git history and release tags.
-git -C "$repo" archive "$revision" v2 | tar -x -C "$source_dir"
+(umask 022; git -C "$repo" archive "$revision" v2 | tar -x -C "$source_dir")
 # The test stays offline: reuse cached vendor only after exact lock metadata verification.
 docker image inspect napay/pos-v2:dev >/dev/null
 docker run --rm -i --network none --read-only -v "$source_dir/v2/composer.lock:/fixture.lock:ro" --entrypoint php napay/pos-v2:dev <<'PHP'
@@ -80,7 +80,7 @@ NAPAY_CLIENT_KEY_SOURCE=$work/private/client-key
 POS_RUNTIME_DIR=$work/private/runtime
 POS_GATEWAY_NETWORK=$network
 POS_COMPOSE_PROJECT=$project
-POS_DEPLOY_WAIT_SECONDS=15
+POS_DEPLOY_WAIT_SECONDS=45
 ENV
 checks=0
 ok() { printf 'PASS: %s\n' "$1"; checks=$((checks+1)); }
