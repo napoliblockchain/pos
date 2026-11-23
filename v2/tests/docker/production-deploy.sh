@@ -164,6 +164,12 @@ docker run --rm -i --network "$network" --read-only --tmpfs /tmp -e POS_MODE=pro
     -e NAPAY_API_BASE_URL=https://napay.production.invalid/api/pos/v1 -e NAPAY_POS_CLIENT_KEY_FILE=/fixture/client-key \
     -v "$work/private/client-key:/fixture/client-key:ro" --entrypoint php "$old_image" < "$root/tests/production-tls.php"
 ok 'system CA path succeeds only with a trusted certificate; untrusted TLS refused'
+# Exercise the real production entrypoint without the optional CA secret as well.
+bash "$script" "$base" > "$work/system-ca-release.log" 2>&1
+container=$(docker ps -q --filter "label=com.docker.compose.project=$project" --filter label=com.docker.compose.service=web)
+[[ $(docker inspect -f '{{.State.Health.Status}}' "$container") == healthy ]]
+docker exec "$container" sh -c 'test -f /run/pos-secrets/client-key && test ! -e /run/pos-secrets/ca.crt'
+ok 'production entrypoint healthy without additional CA secret'
 # A second commit whose app cannot boot. The deployment must restore the first image, preserving runtime.
 printf '<?php throw new RuntimeException("deliberate fixture failure");\n' > "$source_dir/v2/config/web.php"
 git -C "$source_dir" add v2/config/web.php
