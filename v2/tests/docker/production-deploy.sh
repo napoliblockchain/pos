@@ -36,6 +36,7 @@ cleanup() {
 }
 trap cleanup EXIT
 trap 'exit 1' HUP INT TERM
+trap 'printf "Fixture failed at line %s\n" "$LINENO" >&2' ERR
 # Archive committed source only; the private fixture has its own Git history and release tags.
 git -C "$repo" archive "$revision" v2 | tar -x -C "$source_dir"
 # The test stays offline: reuse cached vendor only after exact lock metadata verification.
