@@ -175,7 +175,7 @@ class SiteController extends Controller
     public function actionHealth()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
-        return ['status' => 'ok', 'mode' => 'preview', 'payments' => 'tts-test-chain'];
+        return ['status' => 'ok', 'mode' => getenv('POS_MODE'), 'payments' => getenv('POS_MODE') === 'production' ? 'tts-btc' : 'tts-test-chain'];
     }
 
     public function actionError()

@@ -11,5 +11,5 @@
 <?php $this->head() ?></head><body><?php $this->beginBody() ?>
 <header class="masthead"><a href="/" class="brand"><img src="/brand/icon.svg" alt=""><span><span class="brand-name" aria-label="Napay">na<span>pay</span></span><small>Point of sale</small></span></a><span class="status" data-network data-online="<?= Html::encode(Yii::t('app', 'ONLINE')) ?>" data-offline="<?= Html::encode(Yii::t('app', 'OFFLINE')) ?>"><?= Html::encode(Yii::t('app', 'ONLINE')) ?></span></header>
 <main><?= $content ?></main>
-<footer><span><?= Html::encode(Yii::t('app', 'Test chain only: no real money.')) ?></span></footer>
+<footer><span><?= Html::encode(Yii::t('app', getenv('POS_MODE') === 'production' ? 'Payments managed by Napay.' : 'Test chain only: no real money.')) ?></span></footer>
 <?php $this->endBody() ?></body></html><?php $this->endPage() ?>

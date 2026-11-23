@@ -14,9 +14,7 @@ class NapayLoginClient extends \yii\base\Component
     public function login(string $email, string $password, ?string $ip = null): array
     {
         try {
-            if ($this->baseUrl !== 'https://napay.local/api/pos/v1'
-                || !is_file($this->caFile) || !is_readable($this->caFile)
-                || !is_file($this->clientKeyFile) || !is_readable($this->clientKeyFile)) return $this->unavailable();
+            if (!$this->configured()) return $this->unavailable();
             $key = @file_get_contents($this->clientKeyFile, false, null, 0, 256);
             if (!is_string($key) || !preg_match('/^[A-Za-z0-9_-]{43}$/D', trim($key))) return $this->unavailable();
             $body = json_encode(['email' => $email, 'password' => $password], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
@@ -58,9 +56,7 @@ class NapayLoginClient extends \yii\base\Component
     public function logout(string $token): array
     {
         try {
-            if ($this->baseUrl !== 'https://napay.local/api/pos/v1'
-                || !preg_match('/^napos_[A-Za-z0-9_-]{43}$/D', $token)
-                || !is_readable($this->caFile) || !is_readable($this->clientKeyFile)) return $this->unavailable();
+            if (!$this->configured() || !preg_match('/^napos_[A-Za-z0-9_-]{43}$/D', $token)) return $this->unavailable();
             $key = @file_get_contents($this->clientKeyFile, false, null, 0, 256);
             if (!is_string($key) || !preg_match('/^[A-Za-z0-9_-]{43}$/D', trim($key))) return $this->unavailable();
             $response = $this->request('DELETE', '', trim($key), null, $token);
@@ -79,9 +75,8 @@ class NapayLoginClient extends \yii\base\Component
     public function catalog(string $token, ?string $cursor = null, int $limit = 50): array
     {
         try {
-            if ($this->baseUrl !== 'https://napay.local/api/pos/v1' || !preg_match('/^napos_[A-Za-z0-9_-]{43}$/D',$token)
-                || $limit < 1 || $limit > 100 || ($cursor !== null && !preg_match('/^[A-Za-z0-9_-]{1,512}$/D',$cursor))
-                || !is_readable($this->caFile) || !is_readable($this->clientKeyFile)) return $this->unavailable();
+            if (!$this->configured() || !preg_match('/^napos_[A-Za-z0-9_-]{43}$/D',$token)
+                || $limit < 1 || $limit > 100 || ($cursor !== null && !preg_match('/^[A-Za-z0-9_-]{1,512}$/D',$cursor))) return $this->unavailable();
             $key = @file_get_contents($this->clientKeyFile,false,null,0,256);
             if (!is_string($key) || !preg_match('/^[A-Za-z0-9_-]{43}$/D',trim($key))) return $this->unavailable();
             $params = ['limit'=>$limit]; if ($cursor !== null) $params['cursor']=$cursor;
@@ -323,8 +318,7 @@ class NapayLoginClient extends \yii\base\Component
     private function payment(string $method, string $path, string $token, ?array $body, ?string $idempotencyKey, array $success, callable $valid, string $field = 'payment'): array
     {
         try {
-            if ($this->baseUrl !== 'https://napay.local/api/pos/v1' || !preg_match('/^napos_[A-Za-z0-9_-]{43}$/D', $token)
-                || !is_readable($this->caFile) || !is_readable($this->clientKeyFile)) return $this->unavailable();
+            if (!$this->configured() || !preg_match('/^napos_[A-Za-z0-9_-]{43}$/D', $token)) return $this->unavailable();
             $key = @file_get_contents($this->clientKeyFile, false, null, 0, 256);
             if (!is_string($key) || !preg_match('/^[A-Za-z0-9_-]{43}$/D', trim($key))) return $this->unavailable();
             $payload = $body === null ? '' : json_encode($body, JSON_THROW_ON_ERROR);
@@ -364,8 +358,7 @@ class NapayLoginClient extends \yii\base\Component
         ?string $terminalId = null, ?string $instanceId = null, ?array $expected = null): array
     {
         try {
-            if ($this->baseUrl !== 'https://napay.local/api/pos/v1' || !preg_match('/^napos_[A-Za-z0-9_-]{43}$/D', $token)
-                || !is_readable($this->caFile) || !is_readable($this->clientKeyFile)) return $this->unavailable();
+            if (!$this->configured() || !preg_match('/^napos_[A-Za-z0-9_-]{43}$/D', $token)) return $this->unavailable();
             $key = @file_get_contents($this->clientKeyFile, false, null, 0, 256);
             if (!is_string($key) || !preg_match('/^[A-Za-z0-9_-]{43}$/D', trim($key))) return $this->unavailable();
             $payload = $body === null ? '' : json_encode($body, JSON_THROW_ON_ERROR);
@@ -411,7 +404,6 @@ class NapayLoginClient extends \yii\base\Component
             curl_setopt_array($curl, [CURLOPT_CUSTOMREQUEST => $method, CURLOPT_POSTFIELDS => $body, CURLOPT_HTTPHEADER => $headers,
                 CURLOPT_TIMEOUT => 5, CURLOPT_CONNECTTIMEOUT => 5, CURLOPT_PROXY => '', CURLOPT_FOLLOWLOCATION => false,
                 CURLOPT_PROTOCOLS => CURLPROTO_HTTPS, CURLOPT_SSL_VERIFYPEER => true, CURLOPT_SSL_VERIFYHOST => 2,
-                CURLOPT_CAINFO => $this->caFile,
                 CURLOPT_WRITEFUNCTION => static function ($handle, string $chunk) use (&$raw): int {
                     // storico: 50 voci TTS/BTC con i totali (SIP-033 passo 5) stanno sotto i 32 KB
                     if (strlen($raw) + strlen($chunk) > self::MAX_BODY) return 0;
@@ -423,12 +415,23 @@ class NapayLoginClient extends \yii\base\Component
                     return strlen($header);
                 },
             ]);
+            // Omit CAINFO when using the image's system trust store; verification stays mandatory.
+            if ($this->caFile !== null && $this->caFile !== '') curl_setopt($curl, CURLOPT_CAINFO, $this->caFile);
             if (curl_exec($curl) === false) return [];
             return ['status' => curl_getinfo($curl, CURLINFO_RESPONSE_CODE), 'type' => curl_getinfo($curl, CURLINFO_CONTENT_TYPE),
                 'body' => $raw, 'retry' => $retry, 'setCookie' => $setCookie];
         } finally {
             curl_close($curl);
         }
+    }
+
+    private function configured(): bool
+    {
+        $production = getenv('POS_MODE') === 'production';
+        return RuntimeConfig::apiUrl($this->baseUrl, $production)
+            && (($production && ($this->caFile === null || $this->caFile === ''))
+                || (is_string($this->caFile) && is_file($this->caFile) && is_readable($this->caFile)))
+            && is_string($this->clientKeyFile) && is_file($this->clientKeyFile) && is_readable($this->clientKeyFile);
     }
 
     private function unavailable(): array

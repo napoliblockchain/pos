@@ -1,6 +1,9 @@
 <?php
 $key = getenv('COOKIE_VALIDATION_KEY');
-if (!is_string($key) || strlen($key) < 32 || getenv('POS_MODE') !== 'preview') {
+$mode = getenv('POS_MODE');
+$api = getenv('NAPAY_API_BASE_URL') ?: app\components\RuntimeConfig::LOCAL_API;
+if (!is_string($key) || strlen($key) < 32 || !in_array($mode, ['preview', 'production'], true)
+    || !app\components\RuntimeConfig::apiUrl($api, $mode === 'production')) {
     throw new RuntimeException('Private POS configuration missing or unsupported mode.');
 }
 return [
@@ -8,13 +11,13 @@ return [
     'language' => 'it-IT', 'bootstrap' => ['log'],
     'components' => [
         'request' => ['cookieValidationKey' => $key, 'csrfParam' => '_pos_csrf',
-            'trustedHosts' => ['10.251.0.0/24' => ['X-Forwarded-For', 'X-Forwarded-Proto']],
+            'trustedHosts' => app\components\RuntimeConfig::proxies(getenv('POS_TRUSTED_PROXIES') === false ? '10.251.0.0/24' : getenv('POS_TRUSTED_PROXIES')),
             'csrfCookie' => ['name' => '_pos_csrf', 'httpOnly' => true, 'secure' => true, 'sameSite' => 'Strict']],
         'session' => ['name' => 'POSSESSID', 'savePath' => '@runtime/sessions', 'timeout' => 86400, 'useStrictMode' => true,
             'cookieParams' => ['httpOnly' => true, 'secure' => true, 'sameSite' => 'Strict']],
         'napayLogin' => ['class' => app\components\NapayLoginClient::class,
-            'baseUrl' => getenv('NAPAY_API_BASE_URL') ?: 'https://napay.local/api/pos/v1',
-            'caFile' => getenv('NAPAY_CA_FILE') ?: '/run/pos-secrets/ca.crt',
+            'baseUrl' => $api,
+            'caFile' => getenv('NAPAY_CA_FILE') ?: ($mode === 'production' ? null : '/run/pos-secrets/ca.crt'),
             'clientKeyFile' => getenv('NAPAY_POS_CLIENT_KEY_FILE') ?: '/run/pos-secrets/client-key'],
         'operatorSession' => ['class' => app\components\OperatorSession::class],
         'user' => ['identityClass' => null, 'enableSession' => false],

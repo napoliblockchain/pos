@@ -54,6 +54,7 @@ return [
     'Retry' => 'Riprova',
     'Scan with the TTS wallet: amount and reference are already filled in.' => 'Inquadra con il wallet TTS: importo e riferimento sono già compilati.',
     'Test chain only: no real money.' => 'Solo chain di test: nessun denaro reale.',
+    'Payments managed by Napay.' => 'Pagamenti gestiti da Napay.',
     'The payment is no longer pending: check its outcome.' => 'Il pagamento non è più in attesa: controlla l\'esito.',
     'The POS was closed or unlocked by the manager.' => 'Il POS è stato chiuso o sbloccato dal responsabile.',
     'This POS is no longer available for your account.' => 'Questo POS non è più disponibile per il tuo account.',
