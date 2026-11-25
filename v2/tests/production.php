@@ -56,6 +56,10 @@ try {
     putenv('NAPAY_API_BASE_URL'); putenv('POS_TRUSTED_PROXIES');
     $preview = $load();
     check($preview['components']['napayLogin']['caFile'] === '/run/pos-secrets/ca.crt' && array_keys($preview['components']['request']['trustedHosts']) === ['10.251.0.0/24'], 'Preview defaults unchanged');
+    putenv('POS_MODE=production');
+    check(app\components\PaymentDocuments::modeNotice() === Yii::t('app', 'Payments managed by Napay.'), 'Production receipt and pages without the test chain notice');
+    putenv('POS_MODE=preview');
+    check(app\components\PaymentDocuments::modeNotice() === Yii::t('app', 'Test chain only: no real money.'), 'Preview receipt and pages keep the test chain notice');
     $app->session->close();
     echo "PASS $checks production mode checks\n";
 } finally {

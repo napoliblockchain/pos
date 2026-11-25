@@ -33,7 +33,7 @@ final class PaymentDocuments
             ['', 7, \Yii::t('app', 'Payment {id}', ['id' => substr($receipt['id'], 0, 8)])],
             ['', 7, \Yii::t('app', 'Transaction')],
             ['', 7, substr($receipt['tx_hash'], 0, 12) . '...' . substr($receipt['tx_hash'], -10)],
-            ['', 6, \Yii::t('app', 'Test chain only: no real money.')],
+            ['', 6, self::modeNotice()],
         ];
         return self::pdf($receipt['id'], $rows);
     }
@@ -60,6 +60,12 @@ final class PaymentDocuments
             ['', 7, \Yii::t('app', 'Payment {id}', ['id' => substr($receipt['id'], 0, 8)])],
         ];
         return self::pdf($receipt['id'], $rows);
+    }
+
+    /** Avviso della modalità, uguale su pagine e ricevuta: in produzione nessun riferimento alla chain di test. */
+    public static function modeNotice(): string
+    {
+        return \Yii::t('app', getenv('POS_MODE') === 'production' ? 'Payments managed by Napay.' : 'Test chain only: no real money.');
     }
 
     /** "61700.00" -> "61.700,00" (testo decimale, mai float). */

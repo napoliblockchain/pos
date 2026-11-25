@@ -14,6 +14,6 @@
 <p class="auth-tag"><?= Html::encode(Yii::t('app', 'Accept TTS payments in your shop, in a few taps')) ?></p></aside>
 <main class="auth-main"><div class="auth-form"><a class="auth-wordmark" href="/" aria-label="Napay POS">na<span>pay</span><small>POS</small></a><?= $content ?></div>
 <div class="auth-supporters"><p><?= Html::encode(Yii::t('app', 'Our supporters')) ?></p><div class="auth-logos"><img class="auth-logo-nb" src="/auth/napoli-blockchain.png" alt="Napoli Blockchain"><img class="auth-logo-uni" src="/auth/parthenope.jpg" alt="Università degli Studi di Napoli Parthenope"></div>
-<p class="auth-footer"><?= Html::encode(Yii::t('app', getenv('POS_MODE') === 'production' ? 'Payments managed by Napay.' : 'Test chain only: no real money.')) ?></p></div></main>
+<p class="auth-footer"><?= Html::encode(\app\components\PaymentDocuments::modeNotice()) ?></p></div></main>
 </div>
 <?php $this->endBody() ?></body></html><?php $this->endPage() ?>
