@@ -26,6 +26,9 @@ $check(is_array($shell) && $shell !== [], 'Service worker declares a static shel
 foreach ($shell as $path) $check(is_file($web . $path) && !str_ends_with($path, '.php'), 'Shell entry is a static file: ' . $path);
 $check(str_contains($sw, "request.method !== 'GET'") && str_contains($sw, "request.mode === 'navigate'") && str_contains($sw, "caches.match('/offline.html')")
     && substr_count($sw, 'cache.put') === 1 && str_contains($sw, 'SHELL.includes(url.pathname)'), 'Pages and forms never cached; offline page only as fallback');
+// la copia per la cache va presa prima di restituire la risposta (dopo, il corpo è già letto: clone() fallisce)
+$check(preg_match('/const copy = response\.clone\(\);\s*caches\.open\(CACHE\)\.then\(cache => cache\.put\(request, copy\)\)/', $sw) === 1
+    && !str_contains($sw, 'cache.put(request, response.clone())'), 'Shell response cloned before it is returned to the page');
 $offline = (string) file_get_contents($web . '/offline.html');
 $check(!str_contains($offline, '<?') && !str_contains($offline, 'csrf') && str_contains($offline, 'viewport'), 'Offline page static, no session data');
 $js = (string) file_get_contents($web . '/pos.js');
