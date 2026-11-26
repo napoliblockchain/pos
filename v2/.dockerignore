@@ -1,0 +1,5 @@
+.env*
+vendor
+runtime
+.git
+*.log
