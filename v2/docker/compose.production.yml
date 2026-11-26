@@ -1,0 +1,38 @@
+services:
+  web:
+    image: ${POS_RELEASE_IMAGE:?Release image required}
+    env_file: ${POS_ENV_FILE:?Private env file required}
+    environment:
+      POS_MODE: production
+      NAPAY_POS_CLIENT_KEY_FILE: /run/pos-secrets/client-key
+      NAPAY_CA_FILE: ""
+    secrets: [napay_client_key]
+    restart: unless-stopped
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    volumes:
+      - type: bind
+        source: ${POS_RUNTIME_DIR:?Private runtime directory required}
+        target: /srv/pos/runtime
+        bind: {create_host_path: false}
+    tmpfs:
+      - /tmp
+      - /var/run/apache2
+      - /var/lock/apache2
+      - /run/pos-secrets
+    networks:
+      gateway:
+        aliases: [pos-v2-web]
+    healthcheck:
+      test: [CMD, curl, --fail, --silent, http://127.0.0.1/health]
+      interval: 5s
+      timeout: 3s
+      retries: 6
+      start_period: 5s
+networks:
+  gateway:
+    external: true
+    name: ${POS_GATEWAY_NETWORK:?Gateway network required}
+secrets:
+  napay_client_key:
+    file: ${NAPAY_CLIENT_KEY_SOURCE:?Private client key source required}
